@@ -168,14 +168,23 @@ var activeTool = "draw";
 var mouseTimer = 0; // used for getting if the mouse is being held down but not dragged IE when bringin up color picker
 var mouseHeld; // global timer for if mouse is held.
 
+var canvasPos;
+var startPoint;
+
 function onMouseDown(event) {
   if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
   $('.popup').fadeOut();
 
-  // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  // Ignore right mouse button clicks for now
+  if (event.event.button == 2) {
     return;
   }
+
+	// Middle click for canvas moving
+	if (event.event.button == 1) {
+		$('#myCanvas').css('cursor', 'move');
+		return;
+	}
 
   mouseTimer = 0;
   mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
@@ -238,9 +247,48 @@ function onMouseDrag(event) {
   clearInterval(mouseHeld);
 
   // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  if (event.event.button == 2) {
     return;
   }
+
+	// Hide the color picker if it is showing
+	if ($('#mycolorpicker').is(':visible')) {
+		$('#mycolorpicker').toggle();
+	}
+
+	// Drag
+	if (event.event.button == 1) {
+		var delta = event.point - startPoint;
+		canvasPos = $('#myCanvas').position();
+		$('#myCanvas').css({
+			'left': Math.min(0, canvasPos.left + event.delta.x),
+			'top': Math.min(0, canvasPos.top + event.delta.y)
+		});
+		
+		
+		// Ensure the canvas is large enough to fit on the 
+		var canvas = $('#myCanvas');
+		var canvasPos = canvas.position();
+		canvasPos = new Point([canvasPos.left, canvasPos.top]);
+		var canvasContainerSize = new Point([
+				$('#canvasContainer').width(),
+				$('#canvasContainer').height()
+		]);
+		var canvasSize = new Point([
+				$('#myCanvas').width(),
+				$('#myCanvas').height()
+		]);
+
+		var cover = canvasSize + canvasPos;
+		var diff = canvasContainerSize - cover;
+
+		canvas.prop('height', canvasSize.y + diff.y);
+		canvas.prop('width', canvasSize.x + diff.x);
+	
+		view.draw();
+
+		return;
+	}
 
   if (activeTool == "draw" || activeTool == "pencil") {
     var step = event.delta / 2;
@@ -314,10 +362,17 @@ function onMouseDrag(event) {
 
 function onMouseUp(event) {
 
-  // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  // Ignore right mouse button clicks for now
+  if (event.event.button == 2) {
     return;
   }
+
+	// Middle click for canvas moving
+	if (event.event.button == 1) {
+		$('#myCanvas').css('cursor', 'pointer');
+		return;
+	}
+
   clearInterval(mouseHeld);
 
   if (activeTool == "draw" || activeTool == "pencil") {

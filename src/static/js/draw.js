@@ -182,6 +182,7 @@ function onMouseDown(event) {
     mouseTimer++;
     if (mouseTimer > 5) {
       mouseTimer = 0;
+      clearInterval(mouseHeld);
       $('#mycolorpicker').toggle(); // show the color picker
       $('#mycolorpicker').css({
         "left": event.event.pageX - 250,

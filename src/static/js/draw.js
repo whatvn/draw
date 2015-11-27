@@ -234,12 +234,14 @@ function onMouseDown(event) {
   }
 
   mouseTimer = 0;
-  mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
+	if (!mouseHeld) {
+		mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
     mouseTimer++;
     if (mouseTimer > 3) {
       mouseTimer = 0;
       clearInterval(mouseHeld);
-      var picker = $('#mycolorpicker');
+      mouseHeld = undefined;
+			var picker = $('#mycolorpicker');
       picker.toggle(); // show the color picker
       if (picker.is(':visible')) {
         // Mad hackery to get round issues with event.point
@@ -249,6 +251,7 @@ function onMouseDown(event) {
       }
     }
   }, 100);
+	}
 
   if (activeTool == "draw" || activeTool == "pencil") {
     var point = event.point;
@@ -295,6 +298,7 @@ function onMouseDrag(event) {
 
   mouseTimer = 0;
   clearInterval(mouseHeld);
+  mouseHeld = undefined;
 
   // Ignore middle or right mouse button clicks for now
   if (event.event.button == 1 || event.event.button == 2) {
@@ -378,6 +382,7 @@ function onMouseUp(event) {
     return;
   }
   clearInterval(mouseHeld);
+  mouseHeld = undefined;
 
   if (activeTool == "draw" || activeTool == "pencil") {
     // Close the users path

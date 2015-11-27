@@ -60,6 +60,33 @@ function positionPickerInCanvas(cursor) {
   }); // make it in the smae position
 }
 
+/**
+ * Returns a Point containing the position of the cursor or an averaged
+ * position of fingers for the given value.
+ *
+ * Created as the one included with the Paper library seems to be buggy.
+ *
+ * @param event {Event} The event to extract the position from
+ * @param type {'client'|'page'|'screen'} The position to extract
+ */
+function getEventPoint(event, type) {
+  //@TODO if (!(event instanceof Event)) throw new TypeError('event needs to be an actual Event object (not a ctor event)');
+  if (typeof type !== 'string') throw new TypeError('type needs to be a string value of client, page or screen');
+  if (['client', 'page', 'screen'].indexOf(type) === -1) throw new RangeError('type needs to be either client, page or screen');
+
+  if (event.touches) {
+    var point = new Point();
+    var t;
+    for (t in event.touches) {
+      point += new Point(event.touches[t][type + 'X'], event.touches[t][type + 'Y']);
+    }
+    point = point / event.touches.length;
+    return point;
+  } else {
+    return new Point(event[type + 'X'], event[type + 'Y']);
+  }
+}
+
 /*http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb*/
 function hexToRgb(hex) {
   var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -223,6 +250,7 @@ var startPoint;
 var cursorDelta;
 var startPage;
 var startclie;
+var fingers;
 
 function onMouseDown(event) {
   if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
@@ -232,22 +260,30 @@ function onMouseDown(event) {
   if (event.event.button == 2) {
     return;
   }
-  
+ 
   // Hide color picker if it is visible already
   var picker = $('#mycolorpicker');
   if (picker.is(':visible')) {
     picker.toggle(); // show the color picker
   }
 
-	// Middle click for canvas moving
-	if (event.event.button == 1) {
-		startPoint = new Point(event.event.clientX, event.event.clientY);
-		var canvas = $('#myCanvas');
-		canvasPos = canvas.position();
-		canvasPos = new Point([canvasPos.left, canvasPos.top]);
-		canvas.css('cursor', 'move');
-		return;
-	}
+  // Store the number of fingers we have so we can use it on mouseUp
+  if (event.event.touches) {
+    fingers = event.event.touches.length;
+  } else {
+    fingers = 0;
+  }
+
+  // Middle click or two finger touch for canvas moving
+  if (event.event.button == 1 || (event.event.touches && event.event.touches.length == 2)) {
+    //if (event.event.touches
+    startPoint = getEventPoint(event.event, 'client');
+    var canvas = $('#myCanvas');
+    canvasPos = canvas.position();
+    canvasPos = new Point([canvasPos.left, canvasPos.top]);
+    canvas.css('cursor', 'move');
+    return;
+  }
 
   mouseTimer = 0;
   if (!mouseHeld) {
@@ -311,7 +347,6 @@ var send_item_move_timer;
 var item_move_timer_is_active = false;
 
 function onMouseDrag(event) {
-
   mouseTimer = 0;
   clearInterval(mouseHeld);
   mouseHeld = undefined;
@@ -321,47 +356,48 @@ function onMouseDrag(event) {
     return;
   }
 
-	// Hide the color picker if it is showing
-	if ($('#mycolorpicker').is(':visible')) {
-		$('#mycolorpicker').toggle();
-	}
+  // Hide the color picker if it is showing
+  if ($('#mycolorpicker').is(':visible')) {
+    $('#mycolorpicker').toggle();
+  }
 
-	// Drag
-	if (event.event.button == 1) {
-		var point = new Point(event.event.clientX, event.event.clientY);
-		var delta = point - startPoint;
-		var canvas = $('#myCanvas');
-		var newPos = Point.min(canvasPos + delta, new Point(0, 0));
-		// Rezero cursor if reached down right limit
-		if (newPos == new Point(0, 0)) {
-			startPoint = point;
-		}
-		canvas.css({
-			'left': newPos.x,
-			'top': newPos.y
-		});
-		
-		
-		// Ensure the canvas is large enough to fit on the 
-		var canvasContainerSize = new Point([
-				$('#canvasContainer').width(),
-				$('#canvasContainer').height()
-		]);
-		var canvasSize = new Point([
-				canvas.width(),
-				canvas.height()
-		]);
+  // Drag
+  if (event.event.button == 1 || (event.event.touches && event.event.touches.length == 2)) {
+    var point = getEventPoint(event.event, 'client');
+    var delta = point - startPoint;
+    var canvas = $('#myCanvas');
+    var newPos = Point.min(canvasPos + delta, new Point(0, 0));
+    // Rezero cursor if reached down right limit
+    if (newPos == new Point(0, 0)) {
+      canvasPos = newPos;
+      startPoint = point;
+    }
+    canvas.css({
+      'left': newPos.x,
+      'top': newPos.y
+    });
+    
+    
+    // Ensure the canvas is large enough to fit on the 
+    var canvasContainerSize = new Point([
+        $('#canvasContainer').width(),
+        $('#canvasContainer').height()
+    ]);
+    var canvasSize = new Point([
+        canvas.width(),
+        canvas.height()
+    ]);
 
-		var cover = canvasSize + newPos;
-		var diff = canvasContainerSize - cover;
+    var cover = canvasSize + newPos;
+    var diff = canvasContainerSize - cover;
 
-		canvas.prop('height', canvasSize.y + diff.y);
-		canvas.prop('width', canvasSize.x + diff.x);
-	
-		view.draw();
+    canvas.prop('height', canvasSize.y + diff.y);
+    canvas.prop('width', canvasSize.x + diff.x);
+  
+    view.draw();
 
-		return;
-	}
+    return;
+  }
 
   if (activeTool == "draw" || activeTool == "pencil") {
     var step = event.delta / 2;
@@ -429,7 +465,6 @@ function onMouseDrag(event) {
     }
     item_move_timer_is_active = true;
   }
-
 }
 
 
@@ -439,11 +474,11 @@ function onMouseUp(event) {
     return;
   }
 
-	// Middle click for canvas moving
-	if (event.event.button == 1) {
-		$('#myCanvas').css('cursor', 'pointer');
-		return;
-	}
+  // Middle click for canvas moving
+  if (event.event.button == 1 || (event.event.touches && fingers == 2)) {
+    $('#myCanvas').css('cursor', 'pointer');
+    return;
+  }
 
   clearInterval(mouseHeld);
   mouseHeld = undefined;
@@ -484,7 +519,6 @@ function onMouseUp(event) {
     item_move_delta = null;
     item_move_timer_is_active = false;
   }
-
 }
 
 var key_move_delta;

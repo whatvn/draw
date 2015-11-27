@@ -220,6 +220,9 @@ var mouseHeld; // global timer for if mouse is held.
 
 var canvasPos;
 var startPoint;
+var cursorDelta;
+var startPage;
+var startclie;
 
 function onMouseDown(event) {
   if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
@@ -238,7 +241,11 @@ function onMouseDown(event) {
 
 	// Middle click for canvas moving
 	if (event.event.button == 1) {
-		$('#myCanvas').css('cursor', 'move');
+		startPoint = new Point(event.event.clientX, event.event.clientY);
+		var canvas = $('#myCanvas');
+		canvasPos = canvas.position();
+		canvasPos = new Point([canvasPos.left, canvasPos.top]);
+		canvas.css('cursor', 'move');
 		return;
 	}
 
@@ -317,28 +324,31 @@ function onMouseDrag(event) {
 
 	// Drag
 	if (event.event.button == 1) {
-		var delta = event.point - startPoint;
-		canvasPos = $('#myCanvas').position();
-		$('#myCanvas').css({
-			'left': Math.min(0, canvasPos.left + event.delta.x),
-			'top': Math.min(0, canvasPos.top + event.delta.y)
+		var point = new Point(event.event.clientX, event.event.clientY);
+		var delta = point - startPoint;
+		var canvas = $('#myCanvas');
+		var newPos = Point.min(canvasPos + delta, new Point(0, 0));
+		// Rezero cursor if reached down right limit
+		if (newPos == new Point(0, 0)) {
+			startPoint = point;
+		}
+		canvas.css({
+			'left': newPos.x,
+			'top': newPos.y
 		});
 		
 		
 		// Ensure the canvas is large enough to fit on the 
-		var canvas = $('#myCanvas');
-		var canvasPos = canvas.position();
-		canvasPos = new Point([canvasPos.left, canvasPos.top]);
 		var canvasContainerSize = new Point([
 				$('#canvasContainer').width(),
 				$('#canvasContainer').height()
 		]);
 		var canvasSize = new Point([
-				$('#myCanvas').width(),
-				$('#myCanvas').height()
+				canvas.width(),
+				canvas.height()
 		]);
 
-		var cover = canvasSize + canvasPos;
+		var cover = canvasSize + newPos;
 		var diff = canvasContainerSize - cover;
 
 		canvas.prop('height', canvasSize.y + diff.y);
@@ -420,7 +430,6 @@ function onMouseDrag(event) {
 
 
 function onMouseUp(event) {
-
   // Ignore right mouse button clicks for now
   if (event.event.button == 2) {
     return;

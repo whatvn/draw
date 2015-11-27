@@ -260,7 +260,7 @@ function onMouseDown(event) {
   if (event.event.button == 2) {
     return;
   }
- 
+
   // Hide color picker if it is visible already
   var picker = $('#mycolorpicker');
   if (picker.is(':visible')) {
@@ -274,8 +274,10 @@ function onMouseDown(event) {
     fingers = 0;
   }
 
-  // Middle click or two finger touch for canvas moving
-  if (event.event.button == 1 || (event.event.touches && event.event.touches.length == 2)) {
+  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && event.event.touches.length == 2)) {
     //if (event.event.touches
     startPoint = getEventPoint(event.event, 'client');
     var canvas = $('#myCanvas');
@@ -361,8 +363,10 @@ function onMouseDrag(event) {
     $('#mycolorpicker').toggle();
   }
 
-  // Drag
-  if (event.event.button == 1 || (event.event.touches && event.event.touches.length == 2)) {
+  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && event.event.touches.length == 2)) {
     var point = getEventPoint(event.event, 'client');
     var delta = point - startPoint;
     var canvas = $('#myCanvas');
@@ -474,8 +478,10 @@ function onMouseUp(event) {
     return;
   }
 
-  // Middle click for canvas moving
-  if (event.event.button == 1 || (event.event.touches && fingers == 2)) {
+  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && event.event.touches.length == 2)) {
     $('#myCanvas').css('cursor', 'pointer');
     return;
   }

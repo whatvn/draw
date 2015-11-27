@@ -12,6 +12,54 @@ function pickColor(color) {
   update_active_color();
 }
 
+/**
+ * Position picker next to cursor in the bounds of the canvas container
+ *
+ * @param cursor {Point} Cursor position relative to the page
+ */
+function positionPickerInCanvas(cursor) {
+  var picker = $('#mycolorpicker');
+  
+  // Determine best place for color picker so it isn't off the screen
+  var pickerSize = new Point(picker.width(), picker.height());
+  var windowSize = new Point($(window).width(), $(window).height());
+  var spacer = new Point(10, 0);
+
+  var brSpace = windowSize - spacer - cursor;
+  var tlSpace = cursor - spacer;
+
+  var newPos = new Point();
+
+  // Choose sides based on page size
+  if (tlSpace.x > pickerSize.x) {
+    // Plus a magic number...?
+    newPos.x = cursor.x - (pickerSize.x + 20 + spacer.x);
+  } else if (brSpace.x > pickerSize.x) {
+    newPos.x = cursor.x + spacer.x;
+  }
+  
+  // Get the canvasContainer's position so we can make sure the picker
+  // doesn't go outside of the canvasContainer (to keep it pretty)
+  var minY = 10;
+  // Buffer so we don't get too close to the bottom cause scroll bars
+  var bBuffer = Math.max(50, (windowSize.y - ($('#canvasContainer').position().top 
+      + $('#canvasContainer').height())) + 70);
+
+  // Favour having the picker in the middle of the cursor
+  if (tlSpace.y > ((pickerSize.y / 2) + minY) && brSpace.y > ((pickerSize.y / 2) + bBuffer)) {
+    newPos.y = cursor.y - (pickerSize.y / 2);
+  } else if (tlSpace.y < ((pickerSize.y / 2) + minY) && brSpace.y > (tlSpace.y - (pickerSize.y + minY))) {
+    newPos.y = minY;
+  } else if (brSpace.y < ((pickerSize.y / 2) + bBuffer) && tlSpace.y > (brSpace.y - (pickerSize.y + bBuffer))) {
+    newPos.y = windowSize.y - (pickerSize.y + bBuffer);
+  }
+  
+  $('#mycolorpicker').css({
+    "left": newPos.x,
+    "top": newPos.y
+  }); // make it in the smae position
+}
+
 /*http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb*/
 function hexToRgb(hex) {
   var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -142,7 +190,9 @@ update_active_color();
 
 
 $('#colorToggle').on('click', function() {
-  $('#mycolorpicker').toggle();
+  if ($('#mycolorpicker').toggle().is(':visible')) {
+    positionPickerInCanvas(new Point(event.pageX, event.pageY));
+  }
 });
 
 $('#clearImage').click(function() {
@@ -179,6 +229,12 @@ function onMouseDown(event) {
   if (event.event.button == 2) {
     return;
   }
+  
+  // Hide color picker if it is visible already
+  var picker = $('#mycolorpicker');
+  if (picker.is(':visible')) {
+    picker.toggle(); // show the color picker
+  }
 
 	// Middle click for canvas moving
 	if (event.event.button == 1) {
@@ -189,14 +245,17 @@ function onMouseDown(event) {
   mouseTimer = 0;
   mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
     mouseTimer++;
-    if (mouseTimer > 5) {
+    if (mouseTimer > 3) {
       mouseTimer = 0;
       clearInterval(mouseHeld);
-      $('#mycolorpicker').toggle(); // show the color picker
-      $('#mycolorpicker').css({
-        "left": event.event.pageX - 250,
-        "top": event.event.pageY - 100
-      }); // make it in the smae position
+      var picker = $('#mycolorpicker');
+      picker.toggle(); // show the color picker
+      if (picker.is(':visible')) {
+        // Mad hackery to get round issues with event.point
+        var targetPos = $(event.event.target).position();
+        var point = event.point + new Point(targetPos.left, targetPos.top);
+        positionPickerInCanvas(point);
+      }
     }
   }, 100);
 
@@ -558,8 +617,8 @@ $color.on('click', function() {
 
 });
 
-$('#pickerSwatch').on('click', function() {
-  $('#myColorPicker').fadeToggle();
+$('#pickerSwatch').on('click', function(event) {
+  $('#mycolorpicker').toggle();
 });
 $('#settingslink').on('click', function() {
   $('#settings').fadeToggle();

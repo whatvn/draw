@@ -60,6 +60,22 @@ function positionPickerInCanvas(cursor) {
   }); // make it in the smae position
 }
 
+var scale = 1;
+/**
+ * Scale the canvas by the given new scale.
+ *
+ * @param scale {Float} Scale diff to apply to the canvas
+ * @param pos {Point} Position in screen to place point on canvas
+ * @param point {Point} Point on canvas to place at position on screen
+ */
+function scaleCanvas(scaleDiff, pos, point) {
+	view.zoom += scaleDiff;
+
+	view.draw();
+}
+
+//function getScaledCanvasStyle(
+
 /**
  * Returns a Point containing the position of the cursor or an averaged
  * position of fingers for the given value.
@@ -113,6 +129,40 @@ $(document).ready(function() {
   $('#myCanvas').bind('DOMMouseScroll', function(ev) {
     scrolled(ev.pageX, ev.pageY, ev.detail);
   });
+
+$('#myCanvas').bind('wheel', function(event) {
+	// Find the scroll delta
+	var delta;
+
+	if (event.originalEvent) {
+		// Determine the new scale factor -ve for scaling up
+		var mul;
+		switch(event.originalEvent.deltaMode) {
+			case 0: // Pixel
+				mul = -0.002;
+				break;
+			case 1: // Line
+				mul = -0.02;
+				break;
+			case 2: //Page
+				mul = -0.1;
+				break;
+		}
+
+		delta = new Point(event.originalEvent.deltaX * mul,
+				event.originalEvent.deltaY * mul);
+
+		// Find the biggest scale
+		if (Math.abs(delta.x) > Math.abs(delta.y)) {
+			delta = delta.x;
+		} else {
+			delta = delta.y;
+		}
+
+		// Scale away
+		scaleCanvas(delta);
+	}
+});
 
   var drawingPNG = localStorage.getItem("drawingPNG"+room)
 
@@ -306,7 +356,7 @@ function onMouseDown(event) {
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {
-    var point = event.point;
+		var point = event.point / scale;
     path = new Path();
     if (activeTool == "draw") {
       path.fillColor = active_color_rgb;
@@ -314,7 +364,7 @@ function onMouseDown(event) {
       path.strokeColor = active_color_rgb;
       path.strokeWidth = 2;
     }
-    path.add(event.point);
+    path.add(point);
     path.name = uid + ":" + (++paper_object_count);
     view.draw();
 
@@ -322,7 +372,7 @@ function onMouseDown(event) {
     path_to_send = {
       name: path.name,
       rgba: active_color_json,
-      start: event.point,
+      start: point,
       path: [],
       tool: activeTool
     };
@@ -390,14 +440,16 @@ function onMouseDrag(event) {
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {
-    var step = event.delta / 2;
+    console.log(event);
+		var middlePoint = event.middlePoint / scale;
+		var step = (event.delta / 2);
     step.angle += 90;
     if (activeTool == "draw") {
-      var top = event.middlePoint + step;
-      var bottom = event.middlePoint - step;
+      var top = middlePoint + step;
+      var bottom = middlePoint - step;
     } else if (activeTool == "pencil") {
-      var top = event.middlePoint;
-      bottom = event.middlePoint;
+      var top = middlePoint;
+      bottom = middlePoint;
     }
     path.add(top);
     path.insert(0, bottom);
@@ -467,7 +519,7 @@ function onMouseUp(event) {
   // Pan - Middle click, click+shift or two finger touch for canvas moving
   if (event.event.button == 1 
       || (event.event.button == 0 && event.event.shiftKey)
-      || (event.event.touches && event.event.touches.length == 2)) {
+      || (event.event.touches && fingers == 2)) {
     $('#myCanvas').css('cursor', 'pointer');
     return;
   }
@@ -475,15 +527,19 @@ function onMouseUp(event) {
   clearInterval(mouseHeld);
   mouseHeld = undefined;
 
+
+	console.log(event);
+
   if (activeTool == "draw" || activeTool == "pencil") {
-    // Close the users path
-    path.add(event.point);
+    var point = event.point / scale;
+		// Close the users path
+    path.add(point);
     path.closed = true;
     path.smooth();
     view.draw();
 
     // Send the path to other users
-    path_to_send.end = event.point;
+    path_to_send.end = point;
     // This covers the case where paths are created in less than 100 seconds
     // it does add a duplicate segment, but that is okay for now.
     socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
@@ -640,8 +696,6 @@ $('#myCanvas').bind('drop', function(e) {
     uploadImage(file);
   }
 });
-
-
 
 
 // --------------------------------- 

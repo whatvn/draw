@@ -182,6 +182,9 @@ var active_color_json = {};
 var $opacity = $('#opacityRangeVal');
 var update_active_color = function() {
   var rgb_array = $('#activeColorSwatch').css('background-color');
+
+  if(rgb_array == undefined)rgb_array="rgba(0, 0, 0, 0)"; //default to white if there was an error
+
   $('#editbar').css("border-bottom", "solid 2px " + rgb_array);
 
   while (rgb_array.indexOf(" ") > -1) {
@@ -249,6 +252,7 @@ var fingers; // Used for tracking how many finger have been used in the last eve
 var previousPoint; // Used to track the previous event point for panning
 
 function onMouseDown(event) {
+    event.preventDefault();
   if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
   $('.popup').fadeOut();
 
@@ -342,8 +346,8 @@ var item_move_delta;
 var send_item_move_timer;
 var item_move_timer_is_active = false;
 
-
 function onMouseDrag(event) {
+ event.preventDefault();
   mouseTimer = 0;
   clearInterval(mouseHeld);
   mouseHeld = undefined;

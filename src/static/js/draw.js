@@ -245,12 +245,8 @@ var activeTool = "draw";
 var mouseTimer = 0; // used for getting if the mouse is being held down but not dragged IE when bringin up color picker
 var mouseHeld; // global timer for if mouse is held.
 
-var canvasPos;
-var startPoint;
-var cursorDelta;
-var startPage;
-var startclie;
-var fingers;
+var fingers; // Used for tracking how many finger have been used in the last event
+var previousPoint; // Used to track the previous event point for panning
 
 function onMouseDown(event) {
   if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
@@ -275,14 +271,12 @@ function onMouseDown(event) {
   }
 
   // Pan - Middle click, click+shift or two finger touch for canvas moving
+  // Will also handle scaling using pinch gestures
   if (event.event.button == 1 
       || (event.event.button == 0 && event.event.shiftKey)
       || (event.event.touches && event.event.touches.length == 2)) {
-    //if (event.event.touches
-    startPoint = getEventPoint(event.event, 'client');
+    previousPoint = getEventPoint(event.event, 'client');
     var canvas = $('#myCanvas');
-    canvasPos = canvas.position();
-    canvasPos = new Point([canvasPos.left, canvasPos.top]);
     canvas.css('cursor', 'move');
     return;
   }
@@ -348,6 +342,7 @@ var item_move_delta;
 var send_item_move_timer;
 var item_move_timer_is_active = false;
 
+
 function onMouseDrag(event) {
   mouseTimer = 0;
   clearInterval(mouseHeld);
@@ -367,38 +362,25 @@ function onMouseDrag(event) {
   if (event.event.button == 1 
       || (event.event.button == 0 && event.event.shiftKey)
       || (event.event.touches && event.event.touches.length == 2)) {
+    // Calculate our own delta as the event delta is relative to the canvas
     var point = getEventPoint(event.event, 'client');
-    var delta = point - startPoint;
-    var canvas = $('#myCanvas');
-    var newPos = Point.min(canvasPos + delta, new Point(0, 0));
-    // Rezero cursor if reached down right limit
-    if (newPos == new Point(0, 0)) {
-      canvasPos = newPos;
-      startPoint = point;
-    }
-    canvas.css({
-      'left': newPos.x,
-      'top': newPos.y
-    });
-    
-    
-    // Ensure the canvas is large enough to fit on the 
-    var canvasContainerSize = new Point([
-        $('#canvasContainer').width(),
-        $('#canvasContainer').height()
-    ]);
-    var canvasSize = new Point([
-        canvas.width(),
-        canvas.height()
-    ]);
+    var delta = previousPoint - point;
 
-    var cover = canvasSize + newPos;
-    var diff = canvasContainerSize - cover;
+    // Limit delta so we can't scroll into the -ve
+    var center = view.center;
+    var minCenter = view.size / 2;
+    var newCenter = center + delta;
+    // Calculate the bad delta: the newCentre - minCenter, keep -ve values
+    var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
 
-    canvas.prop('height', canvasSize.y + diff.y);
-    canvas.prop('width', canvasSize.x + diff.x);
+    // Add the bad delta to the delta make sure we won't go into the -ves
+    delta -= badDelta;
   
-    view.draw();
+    // Pretty scroll
+    view.scrollBy(delta);
+
+    // Store the new point so we just calculate a delta for next event
+    previousPoint = point;
 
     return;
   }

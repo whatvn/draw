@@ -165,7 +165,7 @@ $(document).ready(function() {
   });
 
   $('#myCanvas').bind('wheel', function(event) {
-    // Find the scroll delta
+		// Find the scroll delta
     var delta;
 
     if (event.originalEvent) {
@@ -483,6 +483,8 @@ function onMouseDrag(event) {
 
     // Add the bad delta to the delta make sure we won't go into the -ves
     delta -= badDelta;
+
+		var startBounds = view.bounds;
   
     // Pretty scroll
     view.scrollBy(delta);

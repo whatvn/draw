@@ -98,7 +98,17 @@ function scaleCanvas(scale, scaleDiff, pos) {
 
   // Pretty scroll
   view.scrollBy(delta);
+
+  updateCoordinates();
 }
+
+/**
+ * Update the stats in the coordinates box
+ */
+function updateCoordinates() {
+  $('#coordinates').html(view.bounds.x.toFixed(0) + ',' + view.bounds.y.toFixed(0));
+  $('#zoom').html(view.zoom.toFixed(2));
+};
 
 /**
  * Returns a Point containing the position of the cursor or an averaged
@@ -438,7 +448,7 @@ var send_item_move_timer;
 var item_move_timer_is_active = false;
 
 function onMouseDrag(event) {
- event.preventDefault();
+  event.preventDefault();
   mouseTimer = 0;
   clearInterval(mouseHeld);
   mouseHeld = undefined;
@@ -491,6 +501,8 @@ function onMouseDrag(event) {
 
       previousFingerSeparation = separation;
     }
+
+    updateCoordinates();
 
     return;
   }
@@ -747,6 +759,8 @@ $('#myCanvas').bind('drop', function(e) {
   }
 });
 
+//@todo Find why view has no on function view.on('resize', updateCoordinates);
+
 
 
 
@@ -825,6 +839,7 @@ $('#selectTool').on('click', function() {
 $('#zeroTool').on('click', function() {
   // Scroll back to 0,0
   view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
+  updateCoordinates();
 });
 
 $('#uploadImage').on('click', function() {

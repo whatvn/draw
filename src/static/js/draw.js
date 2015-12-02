@@ -337,6 +337,7 @@ var paper_object_count = 0;
 var activeTool = "draw";
 var mouseTimer = 0; // used for getting if the mouse is being held down but not dragged IE when bringin up color picker
 var mouseHeld; // global timer for if mouse is held.
+var path; // Used to store the path currently being drawn
 
 var fingers; // Used for tracking how many finger have been used in the last event
 var previousPoint; // Used to track the previous event point for panning
@@ -368,7 +369,7 @@ function onMouseDown(event) {
   // Pan - Middle click, click+shift or two finger touch for canvas moving
   // Will also handle scaling using pinch gestures
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && event.event.touches.length == 2)) {
     previousPoint = getEventPoint(event.event, 'client');
     var canvas = $('#myCanvas');
@@ -467,7 +468,7 @@ function onMouseDrag(event) {
    * canvas moving and zooming if fingers are involved
    */
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && event.event.touches.length == 2)) {
     // Calculate our own delta as the event delta is relative to the canvas
     var point = getEventPoint(event.event, 'client');
@@ -482,6 +483,8 @@ function onMouseDrag(event) {
 
     // Add the bad delta to the delta make sure we won't go into the -ves
     delta -= badDelta;
+
+    var startBounds = view.bounds;
   
     // Pretty scroll
     view.scrollBy(delta);
@@ -507,7 +510,7 @@ function onMouseDrag(event) {
     return;
   }
 
-  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+  if ((activeTool == "draw" || activeTool == "pencil") && path) {
     var step = event.delta / 2;
     step.angle += 90;
     if (activeTool == "draw") {
@@ -584,7 +587,7 @@ function onMouseUp(event) {
 
   // Pan - Middle click, click+shift or two finger touch for canvas moving
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && fingers == 2)) {
     $('#myCanvas').css('cursor', 'pointer');
     return;
@@ -593,7 +596,7 @@ function onMouseUp(event) {
   clearInterval(mouseHeld);
   mouseHeld = undefined;
 
-  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+  if ((activeTool == "draw" || activeTool == "pencil") && path) {
     // Close the users path
     path.add(event.point);
     path.closed = true;
@@ -760,9 +763,6 @@ $('#myCanvas').bind('drop', function(e) {
 });
 
 //@todo Find why view has no on function view.on('resize', updateCoordinates);
-
-
-
 
 // --------------------------------- 
 // CONTROLS EVENTS
@@ -1051,9 +1051,6 @@ socket.on('image:add', function(artist, data, position, name) {
     view.draw();
   }
 });
-
-
-console.log(view);
 
 // --------------------------------- 
 // SOCKET.IO EVENT FUNCTIONS

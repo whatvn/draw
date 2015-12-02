@@ -1,11 +1,140 @@
+// Please refactor me, this is mostly a complete car crash with globals everywhere.
+
 tool.minDistance = 10;
 tool.maxDistance = 45;
+
+var room = window.location.pathname.split("/")[2];
 
 function pickColor(color) {
   $('#color').val(color);
   var rgb = hexToRgb(color);
   $('#activeColorSwatch').css('background-color', 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')');
   update_active_color();
+}
+
+/**
+ * Position picker next to cursor in the bounds of the canvas container
+ *
+ * @param cursor {Point} Cursor position relative to the page
+ */
+function positionPickerInCanvas(cursor) {
+  var picker = $('#mycolorpicker');
+  
+  // Determine best place for color picker so it isn't off the screen
+  var pickerSize = new Point(picker.width(), picker.height());
+  var windowSize = new Point($(window).width(), $(window).height());
+  var spacer = new Point(10, 0);
+
+  var brSpace = windowSize - spacer - cursor;
+  var tlSpace = cursor - spacer;
+
+  var newPos = new Point();
+
+  // Choose sides based on page size
+  if (tlSpace.x > pickerSize.x) {
+    // Plus a magic number...?
+    newPos.x = cursor.x - (pickerSize.x + 20 + spacer.x);
+  } else if (brSpace.x > pickerSize.x) {
+    newPos.x = cursor.x + spacer.x;
+  }
+  
+  // Get the canvasContainer's position so we can make sure the picker
+  // doesn't go outside of the canvasContainer (to keep it pretty)
+  var minY = 10;
+  // Buffer so we don't get too close to the bottom cause scroll bars
+  var bBuffer = Math.max(50, (windowSize.y - ($('#canvasContainer').position().top 
+      + $('#canvasContainer').height())) + 70);
+
+  // Favour having the picker in the middle of the cursor
+  if (tlSpace.y > ((pickerSize.y / 2) + minY) && brSpace.y > ((pickerSize.y / 2) + bBuffer)) {
+    newPos.y = cursor.y - (pickerSize.y / 2);
+  } else if (tlSpace.y < ((pickerSize.y / 2) + minY) && brSpace.y > (tlSpace.y - (pickerSize.y + minY))) {
+    newPos.y = minY;
+  } else if (brSpace.y < ((pickerSize.y / 2) + bBuffer) && tlSpace.y > (brSpace.y - (pickerSize.y + bBuffer))) {
+    newPos.y = windowSize.y - (pickerSize.y + bBuffer);
+  }
+  
+  $('#mycolorpicker').css({
+    "left": newPos.x,
+    "top": newPos.y
+  }); // make it in the smae position
+}
+
+/**
+ * Scale the canvas by the given new scale.
+ *
+ * @param scale {Float} Scale diff to apply to the canvas
+ * @param pos {Point} Position where to center zoom around on the canvas
+ *        in screen pixels (unscaled)
+ */
+function scaleCanvas(scale, scaleDiff, pos) {
+  // Determine where the cursor currently is
+  var focusPoint = new Point(view.bounds.x, view.bounds.y);
+  focusPoint += (pos / view.zoom);
+
+  // Scale to a minimum 5%
+  view.zoom = Math.max(0.05,
+      (scale === false ? view.zoom + scaleDiff : scale));
+
+  view.draw();
+
+  // Scroll so same point is below pos again, limiting so we don't show -ve
+  // of canvas
+  var offset = new Point(view.bounds.x, view.bounds.y);
+  offset += (pos / view.zoom);
+  
+  var delta = focusPoint - offset;
+
+  // Scroll the where the mousey is
+  // Limit delta so we can't scroll into the -ve
+  var center = view.center;
+  var minCenter = view.size / 2;
+  var newCenter = center + delta;
+  // Calculate the bad delta: the newCentre - minCenter, keep -ve values
+  var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
+
+  // Add the bad delta to the delta make sure we won't go into the -ves
+  delta -= badDelta;
+
+  // Pretty scroll
+  view.scrollBy(delta);
+
+  updateCoordinates();
+}
+
+/**
+ * Update the stats in the coordinates box
+ */
+function updateCoordinates() {
+  $('#coordinates').html(view.bounds.x.toFixed(0) + ',' + view.bounds.y.toFixed(0));
+  $('#zoom').html(view.zoom.toFixed(2));
+};
+
+/**
+ * Returns a Point containing the position of the cursor or an averaged
+ * position of fingers for the given value.
+ *
+ * Created as the one included with the Paper library seems to be buggy.
+ *
+ * @param event {Event} The event to extract the position from
+ * @param type {'client'|'page'|'screen'} The position to extract
+ */
+function getEventPoint(event, type) {
+  //@TODO if (!(event instanceof Event)) throw new TypeError('event needs to be an actual Event object (not a ctor event)');
+  if (typeof type !== 'string') throw new TypeError('type needs to be a string value of client, page or screen');
+  if (['client', 'page', 'screen'].indexOf(type) === -1) throw new RangeError('type needs to be either client, page or screen');
+
+  if (event.touches) {
+    var point = new Point();
+    var t;
+    for (t in event.touches) {
+      point += new Point(event.touches[t][type + 'X'], event.touches[t][type + 'Y']);
+    }
+    point = point / event.touches.length;
+    return point;
+  } else {
+    return new Point(event[type + 'X'], event[type + 'Y']);
+  }
 }
 
 /*http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb*/
@@ -23,8 +152,84 @@ $(document).ready(function() {
   var drawurl = window.location.href.split("?")[0]; // get the drawing url
   $('#embedinput').val("<iframe name='embed_readwrite' src='" + drawurl + "?showControls=true&showChat=true&showLineNumbers=true&useMonospaceFont=false' width=600 height=400></iframe>"); // write it to the embed input
   $('#linkinput').val(drawurl); // and the share/link input
-  $('#drawTool > a').css({background:"#eee"}); // set the drawtool css to show it as active
+  $('#drawTool > a').css({
+    background: "#eee"
+  }); // set the drawtool css to show it as active
+
+  $('#myCanvas').bind('mousewheel', function(ev) {
+    scrolled(ev.pageX, ev.pageY, -ev.wheelDelta);
+  });
+
+  $('#myCanvas').bind('DOMMouseScroll', function(ev) {
+    scrolled(ev.pageX, ev.pageY, ev.detail);
+  });
+
+  $('#myCanvas').bind('wheel', function(event) {
+    // Find the scroll delta
+    var delta;
+
+    if (event.originalEvent) {
+      // Determine the new scale factor -ve for scaling up
+      var mul;
+      switch(event.originalEvent.deltaMode) {
+        case 0: // Pixel
+          mul = -0.002;
+          break;
+        case 1: // Line
+          mul = -0.02;
+          break;
+        case 2: //Page
+          mul = -0.1;
+          break;
+      }
+
+      delta = new Point(event.originalEvent.deltaX * mul,
+          event.originalEvent.deltaY * mul);
+
+      // Find the biggest scale
+      if (Math.abs(delta.x) > Math.abs(delta.y)) {
+        delta = delta.x;
+      } else {
+        delta = delta.y;
+      }
+
+      // Calculate the mouse point relative to the canvas (for centering)
+      var point = getEventPoint(event.originalEvent, 'client');
+      var offset = $('#myCanvas').offset();
+      offset = new Point(offset.left, offset.top);
+      point -= offset;
+
+      // Scale away
+      scaleCanvas(false, delta, point);
+    }
+  });
+
+  var drawingPNG = localStorage.getItem("drawingPNG"+room)
+
+  // Temporarily set background as image from memory to improve UX
+  $('#canvasContainer').css("background-image", 'url(' + drawingPNG + ')');
+
 });
+
+var scaleFactor = 1.1;
+
+function scrolled(x, y, delta) {
+  // Far too buggy for now
+  /*
+  console.log("Scrolling");
+  var pt = new Point(x, y),
+  scale = 1;
+  if(delta < 0) {
+    scale *= scaleFactor;
+  } else if(delta > 0) {
+    scale /= scaleFactor;
+  }
+  //view.scale(scale, pt);
+  $('#myCanvas').
+  view.draw();
+  */
+}
+
 
 $('#activeColorSwatch').css('background-color', $('.colorSwatch.active').css('background-color'));
 
@@ -33,30 +238,29 @@ var socket = io.connect('/');
 
 // Random User ID
 // Used when sending data
-var uid = (function () {
-  var S4 = function () {
+var uid = (function() {
+  var S4 = function() {
     return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
   };
   return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
 }());
 
-function getParameterByName(name)
-{ 
+function getParameterByName(name) {
   name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
   var regexS = "[\\?&]" + name + "=([^&#]*)";
   var regex = new RegExp(regexS);
   var results = regex.exec(window.location.search);
-  if(results == null) {
+  if (results == null) {
     return "";
-  }
-  else {
+  } else {
     return decodeURIComponent(results[1].replace(/\+/g, " "));
   }
 }
 
 // Join the room
-var room = window.location.pathname.split("/")[2];
-socket.emit('subscribe', { room: room });
+socket.emit('subscribe', {
+  room: room
+});
 
 // JSON data ofthe users current drawing
 // Is sent to the user
@@ -66,17 +270,17 @@ var path_to_send = {};
 var active_color_rgb;
 var active_color_json = {};
 var $opacity = $('#opacityRangeVal');
-var update_active_color = function () {
+var update_active_color = function() {
   var rgb_array = $('#activeColorSwatch').css('background-color');
 
   if(rgb_array == undefined)rgb_array="rgba(0, 0, 0, 0)"; //default to white if there was an error
 
   $('#editbar').css("border-bottom", "solid 2px " + rgb_array);
 
-  while(rgb_array.indexOf(" ") > -1) {
+  while (rgb_array.indexOf(" ") > -1) {
     rgb_array = rgb_array.replace(" ", "");
   }
-  rgb_array = rgb_array.substr(4, rgb_array.length-5);
+  rgb_array = rgb_array.substr(4, rgb_array.length - 5);
   rgb_array = rgb_array.split(',');
   var red = rgb_array[0] / 255;
   var green = rgb_array[1] / 255;
@@ -96,8 +300,8 @@ var update_active_color = function () {
 // Get the active color from the UI eleements
 var authorColor = getParameterByName('authorColor');
 var authorColors = {};
-if (authorColor != "" && authorColor.substr(0,4) == "rgb(") {
-  authorColor = authorColor.substr(4, authorColor.indexOf(")")-4);
+if (authorColor != "" && authorColor.substr(0, 4) == "rgb(") {
+  authorColor = authorColor.substr(4, authorColor.indexOf(")") - 4);
   authorColors = authorColor.split(",");
   $('#activeColorSwatch').css('background-color', 'rgb(' + authorColors[0] + ',' + authorColors[1] + ',' + authorColors[2] + ')');
 }
@@ -105,7 +309,23 @@ update_active_color();
 
 
 
+$('#colorToggle').on('click', function() {
+  if ($('#mycolorpicker').toggle().is(':visible')) {
+    positionPickerInCanvas(new Point(event.pageX, event.pageY));
+  }
+});
 
+$('#clearImage').click(function() {
+  var p = confirm("Are you sure you want to clear the drawing for everyone?");
+  if (p) {
+    clearCanvas();
+    socket.emit('canvas:clear', room);
+  }
+});
+
+$('.toggleBackground').click(function() {
+  $('#myCanvas').toggleClass('whiteBG');
+});
 
 // --------------------------------- 
 // DRAWING EVENTS
@@ -118,32 +338,80 @@ var activeTool = "draw";
 var mouseTimer = 0; // used for getting if the mouse is being held down but not dragged IE when bringin up color picker
 var mouseHeld; // global timer for if mouse is held.
 
+var fingers; // Used for tracking how many finger have been used in the last event
+var previousPoint; // Used to track the previous event point for panning
+var previousFingerSeparation; // Used to store how far apart the fingers were at the start
+
 function onMouseDown(event) {
     event.preventDefault();
+  if (event.which === 2) return; // If it's middle mouse button do nothing -- This will be reserved for panning in the future.
   $('.popup').fadeOut();
 
-  // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  // Ignore right mouse button clicks for now
+  if (event.event.button == 2) {
+    return;
+  }
+
+  // Hide color picker if it is visible already
+  var picker = $('#mycolorpicker');
+  if (picker.is(':visible')) {
+    picker.toggle(); // show the color picker
+  }
+
+  // Store the number of fingers we have so we can use it on mouseUp
+  if (event.event.touches) {
+    fingers = event.event.touches.length;
+  } else {
+    fingers = 0;
+  }
+
+  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  // Will also handle scaling using pinch gestures
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && event.event.touches.length == 2)) {
+    previousPoint = getEventPoint(event.event, 'client');
+    var canvas = $('#myCanvas');
+    canvas.css('cursor', 'move');
+    // Store the finger separation if we have fingers
+    if (event.event.touches) {
+      // Clear the current path
+      path.remove();
+      path = false;
+      previousFingerSeparation = (new Point(
+          event.event.touches[0].clientX, event.event.touches[0].clientY) -
+          new Point (event.event.touches[1].clientX, event.event.touches[1].clientY)
+      ).length;
+    }
     return;
   }
 
   mouseTimer = 0;
-  mouseHeld = setInterval(function(){ // is the mouse being held and not dragged?
+  if (!mouseHeld) {
+    mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
     mouseTimer++;
-    if(mouseTimer > 5){
+    if (mouseTimer > 3) {
       mouseTimer = 0;
-      $('#mycolorpicker').toggle(); // show the color picker
-      $('#mycolorpicker').css({"left":event.event.pageX - 250, "top":event.event.pageY - 100}); // make it in the smae position
+      clearInterval(mouseHeld);
+      mouseHeld = undefined;
+      var picker = $('#mycolorpicker');
+      picker.toggle(); // show the color picker
+      if (picker.is(':visible')) {
+        // Mad hackery to get round issues with event.point
+        var targetPos = $(event.event.target).position();
+        var point = event.point + new Point(targetPos.left, targetPos.top);
+        positionPickerInCanvas(point);
+      }
     }
   }, 100);
-  
+  }
+
   if (activeTool == "draw" || activeTool == "pencil") {
     var point = event.point;
     path = new Path();
-    if(activeTool == "draw"){
+    if (activeTool == "draw") {
       path.fillColor = active_color_rgb;
-    }
-    else if(activeTool == "pencil"){
+    } else if (activeTool == "pencil") {
       path.strokeColor = active_color_rgb;
       path.strokeWidth = 2;
     }
@@ -161,7 +429,7 @@ function onMouseDown(event) {
     };
   } else if (activeTool == "select") {
     // Select item
-    $("#myCanvas").css("cursor","pointer");
+    $("#myCanvas").css("cursor", "pointer");
     if (event.item) {
       // If holding shift key down, don't clear selection - allows multiple selections
       if (!event.event.shiftKey) {
@@ -180,22 +448,72 @@ var send_item_move_timer;
 var item_move_timer_is_active = false;
 
 function onMouseDrag(event) {
- event.preventDefault();
+  event.preventDefault();
   mouseTimer = 0;
   clearInterval(mouseHeld);
+  mouseHeld = undefined;
 
   // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  if (event.event.button == 2) {
     return;
   }
 
-  if (activeTool == "draw" || activeTool == "pencil") {
+  // Hide the color picker if it is showing
+  if ($('#mycolorpicker').is(':visible')) {
+    $('#mycolorpicker').toggle();
+  }
+
+  /* Pan / Pinch zoom - Middle click, click+shift or two finger touch for
+   * canvas moving and zooming if fingers are involved
+   */
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && event.event.touches.length == 2)) {
+    // Calculate our own delta as the event delta is relative to the canvas
+    var point = getEventPoint(event.event, 'client');
+    var delta = (previousPoint - point) / view.zoom;
+
+    // Limit delta so we can't scroll into the -ve
+    var center = view.center;
+    var minCenter = view.size / 2;
+    var newCenter = center + delta;
+    // Calculate the bad delta: the newCentre - minCenter, keep -ve values
+    var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
+
+    // Add the bad delta to the delta make sure we won't go into the -ves
+    delta -= badDelta;
+  
+    // Pretty scroll
+    view.scrollBy(delta);
+
+    // Store the new point so we just calculate a delta for next event
+    previousPoint = point;
+
+    // Zoom if touching and breach the buffer
+    if (event.event.touches) {
+      var separation =(new Point(
+          event.event.touches[0].clientX, event.event.touches[0].clientY) -
+          new Point (event.event.touches[1].clientX, event.event.touches[1].clientY)
+      ).length;
+
+      // Scale with a scaling factor (2) to make it nicer
+      scaleCanvas(false, (1 - (previousFingerSeparation / separation))/ 3, point);
+
+      previousFingerSeparation = separation;
+    }
+
+    updateCoordinates();
+
+    return;
+  }
+
+  if (path && (activeTool == "draw" || activeTool == "pencil")) {
     var step = event.delta / 2;
     step.angle += 90;
-    if(activeTool == "draw"){
+    if (activeTool == "draw") {
       var top = event.middlePoint + step;
       var bottom = event.middlePoint - step;
-    }else if (activeTool == "pencil"){
+    } else if (activeTool == "pencil") {
       var top = event.middlePoint;
       bottom = event.middlePoint;
     }
@@ -213,7 +531,7 @@ function onMouseDrag(event) {
     // Send paths every 100ms
     if (!timer_is_active) {
 
-      send_paths_timer = setInterval(function () {
+      send_paths_timer = setInterval(function() {
 
         socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
         path_to_send.path = new Array();
@@ -255,19 +573,27 @@ function onMouseDrag(event) {
     }
     item_move_timer_is_active = true;
   }
-
 }
 
 
 function onMouseUp(event) {
-
-  // Ignore middle or right mouse button clicks for now
-  if (event.event.button == 1 || event.event.button == 2) {
+  // Ignore right mouse button clicks for now
+  if (event.event.button == 2) {
     return;
   }
-  clearInterval(mouseHeld);
 
-  if (activeTool == "draw" || activeTool == "pencil") {
+  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  if (event.event.button == 1 
+      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.touches && fingers == 2)) {
+    $('#myCanvas').css('cursor', 'pointer');
+    return;
+  }
+
+  clearInterval(mouseHeld);
+  mouseHeld = undefined;
+
+  if (path && (activeTool == "draw" || activeTool == "pencil")) {
     // Close the users path
     path.add(event.point);
     path.closed = true;
@@ -303,12 +629,12 @@ function onMouseUp(event) {
     item_move_delta = null;
     item_move_timer_is_active = false;
   }
-
 }
 
 var key_move_delta;
 var send_key_move_timer;
 var key_move_timer_is_active = false;
+
 function onKeyDown(event) {
   if (activeTool == "select") {
     var point = null;
@@ -323,7 +649,7 @@ function onKeyDown(event) {
       point = new paper.Point(1, 0);
     }
 
-	// Move objects 1 pixel with arrow keys
+    // Move objects 1 pixel with arrow keys
     if (point) {
       moveItemsBy1Pixel(point);
     }
@@ -336,7 +662,7 @@ function onKeyDown(event) {
         key_move_delta += point;
       }
     }
-	
+
     // Send move updates every 100 ms as batch updates
     if (!key_move_timer_is_active && point) {
       send_key_move_timer = setInterval(function() {
@@ -421,19 +747,19 @@ $('#myCanvas').bind('dragover dragenter', function(e) {
 
 $('#myCanvas').bind('drop', function(e) {
   e = e || window.event; // get window.event if e argument missing (in IE)
-  if (e.preventDefault) {  // stops the browser from redirecting off to the image.
+  if (e.preventDefault) { // stops the browser from redirecting off to the image.
     e.preventDefault();
   }
   e = e.originalEvent;
   var dt = e.dataTransfer;
   var files = dt.files;
-  for (var i=0; i<files.length; i++) {
+  for (var i = 0; i < files.length; i++) {
     var file = files[i];
     uploadImage(file);
   }
 });
 
-
+//@todo Find why view has no on function view.on('resize', updateCoordinates);
 
 
 
@@ -442,7 +768,7 @@ $('#myCanvas').bind('drop', function(e) {
 // CONTROLS EVENTS
 
 var $color = $('.colorSwatch:not(#pickerSwatch)');
-$color.on('click', function () {
+$color.on('click', function() {
 
   $color.removeClass('active');
   $(this).addClass('active');
@@ -451,8 +777,8 @@ $color.on('click', function () {
 
 });
 
-$('#pickerSwatch').on('click', function() {
-  $('#myColorPicker').fadeToggle();
+$('#pickerSwatch').on('click', function(event) {
+  $('#mycolorpicker').toggle();
 });
 $('#settingslink').on('click', function() {
   $('#settings').fadeToggle();
@@ -478,24 +804,42 @@ $('#exportPNG').on('click', function() {
 });
 
 $('#pencilTool').on('click', function() {
-  $('#editbar > ul > li > a').css({background:""}); // remove the backgrounds from other buttons
-  $('#pencilTool > a').css({background:"#eee"}); // set the selecttool css to show it as active
+  $('#editbar > ul > li > a').css({
+    background: ""
+  }); // remove the backgrounds from other buttons
+  $('#pencilTool > a').css({
+    background: "#eee"
+  }); // set the selecttool css to show it as active
   activeTool = "pencil";
   $('#myCanvas').css('cursor', 'pointer');
   paper.project.activeLayer.selected = false;
 });
 $('#drawTool').on('click', function() {
-  $('#editbar > ul > li > a').css({background:""}); // remove the backgrounds from other buttons
-  $('#drawTool > a').css({background:"#eee"}); // set the selecttool css to show it as active
+  $('#editbar > ul > li > a').css({
+    background: ""
+  }); // remove the backgrounds from other buttons
+  $('#drawTool > a').css({
+    background: "#eee"
+  }); // set the selecttool css to show it as active
   activeTool = "draw";
   $('#myCanvas').css('cursor', 'pointer');
   paper.project.activeLayer.selected = false;
 });
 $('#selectTool').on('click', function() {
-  $('#editbar > ul > li > a').css({background:""}); // remove the backgrounds from other buttons
-  $('#selectTool > a').css({background:"#eee"}); // set the selecttool css to show it as active
+  $('#editbar > ul > li > a').css({
+    background: ""
+  }); // remove the backgrounds from other buttons
+  $('#selectTool > a').css({
+    background: "#eee"
+  }); // set the selecttool css to show it as active
   activeTool = "select";
   $('#myCanvas').css('cursor', 'default');
+});
+
+$('#zeroTool').on('click', function() {
+  // Scroll back to 0,0
+  view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
+  updateCoordinates();
 });
 
 $('#uploadImage').on('click', function() {
@@ -506,14 +850,14 @@ function clearCanvas() {
   // Remove all but the active layer
   if (project.layers.length > 1) {
     var activeLayerID = project.activeLayer._id;
-    for (var i=0; i<project.layers.length; i++) {
+    for (var i = 0; i < project.layers.length; i++) {
       if (project.layers[i]._id != activeLayerID) {
         project.layers[i].remove();
         i--;
       }
     }
   }
-  
+
   // Remove all of the children from the active layer
   if (paper.project.activeLayer && paper.project.activeLayer.hasChildren()) {
     paper.project.activeLayer.removeChildren();
@@ -530,7 +874,7 @@ function exportSVG() {
 // to the svg image that can be saved as a .svg on the users
 // local filesystem. This skips making a round trip to the server
 // for a POST.
-function encodeAsImgAndLink(svg){
+function encodeAsImgAndLink(svg) {
   if ($.browser.msie) {
     // Add some critical information
     svg.setAttribute('version', '1.1');
@@ -574,14 +918,14 @@ function exportPNG() {
     window.winpng.document.write(html);
     window.winpng.document.body.style.margin = 0;
   }
-  
+
 }
 
 // User selects an image from the file browser to upload
 $('#imageInput').bind('change', function(e) {
   // Get selected files
   var files = document.getElementById('imageInput').files;
-  for (var i=0; i<files.length; i++) {
+  for (var i = 0; i < files.length; i++) {
     var file = files[i];
     uploadImage(file);
   }
@@ -593,7 +937,7 @@ function uploadImage(file) {
   //attach event handler
   reader.readAsDataURL(file);
   $(reader).bind('loadend', function(e) {
-    var bin = this.result; 
+    var bin = this.result;
 
     //Add to paper project here
     var raster = new Raster(bin);
@@ -606,12 +950,14 @@ function uploadImage(file) {
 
 
 
-
 // --------------------------------- 
 // SOCKET.IO EVENTS
+socket.on('settings', function(settings) {
+  processSettings(settings);
+});
 
 
-socket.on('draw:progress', function (artist, data) {
+socket.on('draw:progress', function(artist, data) {
 
   // It wasnt this user who created the event
   if (artist !== uid && data) {
@@ -620,7 +966,7 @@ socket.on('draw:progress', function (artist, data) {
 
 });
 
-socket.on('draw:end', function (artist, data) {
+socket.on('draw:end', function(artist, data) {
 
   // It wasnt this user who created the event
   if (artist !== uid && data) {
@@ -629,16 +975,16 @@ socket.on('draw:end', function (artist, data) {
 
 });
 
-socket.on('user:connect', function (user_count) {
+socket.on('user:connect', function(user_count) {
   console.log("user:connect");
   update_user_count(user_count);
 });
 
-socket.on('user:disconnect', function (user_count) {
+socket.on('user:disconnect', function(user_count) {
   update_user_count(user_count);
 });
 
-socket.on('project:load', function (json) {
+socket.on('project:load', function(json) {
   console.log("project:load");
   paper.project.activeLayer.remove();
   paper.project.importJSON(json.project);
@@ -646,9 +992,9 @@ socket.on('project:load', function (json) {
   // Make color selector draggable
   $('#mycolorpicker').pep({});
   // Make sure the range event doesn't propogate to pep
-  $('#opacityRangeVal').on('touchstart MSPointerDown mousedown', function(ev){
-    ev.stopPropagation(); 
-  }).on('change', function(ev){
+  $('#opacityRangeVal').on('touchstart MSPointerDown mousedown', function(ev) {
+    ev.stopPropagation();
+  }).on('change', function(ev) {
     update_active_color();
   })
 
@@ -672,6 +1018,9 @@ socket.on('loading:start', function() {
 socket.on('loading:end', function() {
   $('#loading').hide();
   $('#colorpicker').farbtastic(pickColor); // make a color picker
+  // cake
+  $('#canvasContainer').css("background-image", 'none');
+
 });
 
 socket.on('item:remove', function(artist, name) {
@@ -704,21 +1053,22 @@ socket.on('image:add', function(artist, data, position, name) {
 });
 
 
+console.log(view);
+
 // --------------------------------- 
 // SOCKET.IO EVENT FUNCTIONS
-
 
 // Updates the active connections
 var $user_count = $('#online_count');
 
-function update_user_count(count) {
-  $user_count.text((count === 1) ? "1" : " " + count);
+function update_user_count(count) {  
+  $user_count.text((count === 1) ? "1" : " " + count);
 }
 
 var external_paths = {};
 
 // Ends a path
-var end_external_path = function (points, artist) {
+var end_external_path = function(points, artist) {
 
   var path = external_paths[artist];
 
@@ -729,7 +1079,7 @@ var end_external_path = function (points, artist) {
     path.closed = true;
     path.smooth();
     view.draw();
-	
+
     // Remove the old data
     external_paths[artist] = false;
 
@@ -738,7 +1088,7 @@ var end_external_path = function (points, artist) {
 };
 
 // Continues to draw a path in real time
-progress_external_path = function (points, artist) {
+progress_external_path = function(points, artist) {
 
   var path = external_paths[artist];
 
@@ -753,10 +1103,9 @@ progress_external_path = function (points, artist) {
     // Starts the path
     var start_point = new Point(points.start[1], points.start[2]);
     var color = new RgbColor(points.rgba.red, points.rgba.green, points.rgba.blue, points.rgba.opacity);
-    if(points.tool == "draw"){
+    if (points.tool == "draw") {
       path.fillColor = color;
-    }
-    else if(points.tool == "pencil"){
+    } else if (points.tool == "pencil") {
       path.strokeColor = color;
       path.strokeWidth = 2;
     }
@@ -780,3 +1129,27 @@ progress_external_path = function (points, artist) {
   view.draw();
 
 };
+
+function processSettings(settings) {
+
+  $.each(settings, function(k, v) {
+
+    // Handle tool changes
+    if (k === "tool") {
+      $('.buttonicon-' + v).click();
+    }
+
+  })
+
+}
+
+// Periodically save drawing
+setInterval(function(){
+  saveDrawing();
+}, 1000);
+
+function saveDrawing(){
+  var canvas = document.getElementById('myCanvas');
+  // Save image to localStorage
+  localStorage.setItem("drawingPNG"+room, canvas.toDataURL('image/png'));
+}

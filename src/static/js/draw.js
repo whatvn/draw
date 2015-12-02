@@ -369,7 +369,7 @@ function onMouseDown(event) {
   // Pan - Middle click, click+shift or two finger touch for canvas moving
   // Will also handle scaling using pinch gestures
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && event.event.touches.length == 2)) {
     previousPoint = getEventPoint(event.event, 'client');
     var canvas = $('#myCanvas');
@@ -468,7 +468,7 @@ function onMouseDrag(event) {
    * canvas moving and zooming if fingers are involved
    */
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && event.event.touches.length == 2)) {
     // Calculate our own delta as the event delta is relative to the canvas
     var point = getEventPoint(event.event, 'client');
@@ -585,7 +585,7 @@ function onMouseUp(event) {
 
   // Pan - Middle click, click+shift or two finger touch for canvas moving
   if (event.event.button == 1 
-      || (event.event.button == 0 && event.event.shiftKey)
+      || (event.event.button == 0 && event.event.ctrlKey)
       || (event.event.touches && fingers == 2)) {
     $('#myCanvas').css('cursor', 'pointer');
     return;
@@ -761,9 +761,6 @@ $('#myCanvas').bind('drop', function(e) {
 });
 
 //@todo Find why view has no on function view.on('resize', updateCoordinates);
-
-
-
 
 // --------------------------------- 
 // CONTROLS EVENTS

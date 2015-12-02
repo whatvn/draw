@@ -60,21 +60,45 @@ function positionPickerInCanvas(cursor) {
   }); // make it in the smae position
 }
 
-var scale = 1;
 /**
  * Scale the canvas by the given new scale.
  *
  * @param scale {Float} Scale diff to apply to the canvas
- * @param pos {Point} Position in screen to place point on canvas
- * @param point {Point} Point on canvas to place at position on screen
+ * @param pos {Point} Position where to center zoom around on the canvas
+ *        in screen pixels (unscaled)
  */
-function scaleCanvas(scaleDiff, pos, point) {
-	view.zoom += scaleDiff;
+function scaleCanvas(scale, scaleDiff, pos) {
+  // Determine where the cursor currently is
+  var focusPoint = new Point(view.bounds.x, view.bounds.y);
+  focusPoint += (pos / view.zoom);
 
-	view.draw();
+  // Scale to a minimum 5%
+  view.zoom = Math.max(0.05,
+      (scale === false ? view.zoom + scaleDiff : scale));
+
+  view.draw();
+
+  // Scroll so same point is below pos again, limiting so we don't show -ve
+  // of canvas
+  var offset = new Point(view.bounds.x, view.bounds.y);
+  offset += (pos / view.zoom);
+  
+  var delta = focusPoint - offset;
+
+  // Scroll the where the mousey is
+  // Limit delta so we can't scroll into the -ve
+  var center = view.center;
+  var minCenter = view.size / 2;
+  var newCenter = center + delta;
+  // Calculate the bad delta: the newCentre - minCenter, keep -ve values
+  var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
+
+  // Add the bad delta to the delta make sure we won't go into the -ves
+  delta -= badDelta;
+
+  // Pretty scroll
+  view.scrollBy(delta);
 }
-
-//function getScaledCanvasStyle(
 
 /**
  * Returns a Point containing the position of the cursor or an averaged
@@ -130,39 +154,45 @@ $(document).ready(function() {
     scrolled(ev.pageX, ev.pageY, ev.detail);
   });
 
-$('#myCanvas').bind('wheel', function(event) {
-	// Find the scroll delta
-	var delta;
+  $('#myCanvas').bind('wheel', function(event) {
+    // Find the scroll delta
+    var delta;
 
-	if (event.originalEvent) {
-		// Determine the new scale factor -ve for scaling up
-		var mul;
-		switch(event.originalEvent.deltaMode) {
-			case 0: // Pixel
-				mul = -0.002;
-				break;
-			case 1: // Line
-				mul = -0.02;
-				break;
-			case 2: //Page
-				mul = -0.1;
-				break;
-		}
+    if (event.originalEvent) {
+      // Determine the new scale factor -ve for scaling up
+      var mul;
+      switch(event.originalEvent.deltaMode) {
+        case 0: // Pixel
+          mul = -0.002;
+          break;
+        case 1: // Line
+          mul = -0.02;
+          break;
+        case 2: //Page
+          mul = -0.1;
+          break;
+      }
 
-		delta = new Point(event.originalEvent.deltaX * mul,
-				event.originalEvent.deltaY * mul);
+      delta = new Point(event.originalEvent.deltaX * mul,
+          event.originalEvent.deltaY * mul);
 
-		// Find the biggest scale
-		if (Math.abs(delta.x) > Math.abs(delta.y)) {
-			delta = delta.x;
-		} else {
-			delta = delta.y;
-		}
+      // Find the biggest scale
+      if (Math.abs(delta.x) > Math.abs(delta.y)) {
+        delta = delta.x;
+      } else {
+        delta = delta.y;
+      }
 
-		// Scale away
-		scaleCanvas(delta);
-	}
-});
+      // Calculate the mouse point relative to the canvas (for centering)
+      var point = getEventPoint(event.originalEvent, 'client');
+      var offset = $('#myCanvas').offset();
+      offset = new Point(offset.left, offset.top);
+      point -= offset;
+
+      // Scale away
+      scaleCanvas(false, delta, point);
+    }
+  });
 
   var drawingPNG = localStorage.getItem("drawingPNG"+room)
 
@@ -300,6 +330,7 @@ var mouseHeld; // global timer for if mouse is held.
 
 var fingers; // Used for tracking how many finger have been used in the last event
 var previousPoint; // Used to track the previous event point for panning
+var previousFingerSeparation; // Used to store how far apart the fingers were at the start
 
 function onMouseDown(event) {
     event.preventDefault();
@@ -332,6 +363,16 @@ function onMouseDown(event) {
     previousPoint = getEventPoint(event.event, 'client');
     var canvas = $('#myCanvas');
     canvas.css('cursor', 'move');
+    // Store the finger separation if we have fingers
+    if (event.event.touches) {
+      // Clear the current path
+      path.remove();
+      path = false;
+      previousFingerSeparation = (new Point(
+          event.event.touches[0].clientX, event.event.touches[0].clientY) -
+          new Point (event.event.touches[1].clientX, event.event.touches[1].clientY)
+      ).length;
+    }
     return;
   }
 
@@ -356,7 +397,7 @@ function onMouseDown(event) {
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {
-		var point = event.point / scale;
+    var point = event.point;
     path = new Path();
     if (activeTool == "draw") {
       path.fillColor = active_color_rgb;
@@ -364,7 +405,7 @@ function onMouseDown(event) {
       path.strokeColor = active_color_rgb;
       path.strokeWidth = 2;
     }
-    path.add(point);
+    path.add(event.point);
     path.name = uid + ":" + (++paper_object_count);
     view.draw();
 
@@ -372,7 +413,7 @@ function onMouseDown(event) {
     path_to_send = {
       name: path.name,
       rgba: active_color_json,
-      start: point,
+      start: event.point,
       path: [],
       tool: activeTool
     };
@@ -412,13 +453,15 @@ function onMouseDrag(event) {
     $('#mycolorpicker').toggle();
   }
 
-  // Pan - Middle click, click+shift or two finger touch for canvas moving
+  /* Pan / Pinch zoom - Middle click, click+shift or two finger touch for
+   * canvas moving and zooming if fingers are involved
+   */
   if (event.event.button == 1 
       || (event.event.button == 0 && event.event.shiftKey)
       || (event.event.touches && event.event.touches.length == 2)) {
     // Calculate our own delta as the event delta is relative to the canvas
     var point = getEventPoint(event.event, 'client');
-    var delta = previousPoint - point;
+    var delta = (previousPoint - point) / view.zoom;
 
     // Limit delta so we can't scroll into the -ve
     var center = view.center;
@@ -436,20 +479,31 @@ function onMouseDrag(event) {
     // Store the new point so we just calculate a delta for next event
     previousPoint = point;
 
+    // Zoom if touching and breach the buffer
+    if (event.event.touches) {
+      var separation =(new Point(
+          event.event.touches[0].clientX, event.event.touches[0].clientY) -
+          new Point (event.event.touches[1].clientX, event.event.touches[1].clientY)
+      ).length;
+
+      // Scale with a scaling factor (2) to make it nicer
+      scaleCanvas(false, (1 - (previousFingerSeparation / separation))/ 3, point);
+
+      previousFingerSeparation = separation;
+    }
+
     return;
   }
 
-  if (activeTool == "draw" || activeTool == "pencil") {
-    console.log(event);
-		var middlePoint = event.middlePoint / scale;
-		var step = (event.delta / 2);
+  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+    var step = event.delta / 2;
     step.angle += 90;
     if (activeTool == "draw") {
-      var top = middlePoint + step;
-      var bottom = middlePoint - step;
+      var top = event.middlePoint + step;
+      var bottom = event.middlePoint - step;
     } else if (activeTool == "pencil") {
-      var top = middlePoint;
-      bottom = middlePoint;
+      var top = event.middlePoint;
+      bottom = event.middlePoint;
     }
     path.add(top);
     path.insert(0, bottom);
@@ -527,19 +581,15 @@ function onMouseUp(event) {
   clearInterval(mouseHeld);
   mouseHeld = undefined;
 
-
-	console.log(event);
-
-  if (activeTool == "draw" || activeTool == "pencil") {
-    var point = event.point / scale;
-		// Close the users path
-    path.add(point);
+  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+    // Close the users path
+    path.add(event.point);
     path.closed = true;
     path.smooth();
     view.draw();
 
     // Send the path to other users
-    path_to_send.end = point;
+    path_to_send.end = event.point;
     // This covers the case where paths are created in less than 100 seconds
     // it does add a duplicate segment, but that is okay for now.
     socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
@@ -696,6 +746,8 @@ $('#myCanvas').bind('drop', function(e) {
     uploadImage(file);
   }
 });
+
+
 
 
 // --------------------------------- 

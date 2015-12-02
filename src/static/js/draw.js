@@ -337,6 +337,7 @@ var paper_object_count = 0;
 var activeTool = "draw";
 var mouseTimer = 0; // used for getting if the mouse is being held down but not dragged IE when bringin up color picker
 var mouseHeld; // global timer for if mouse is held.
+var path; // Used to store the path currently being drawn
 
 var fingers; // Used for tracking how many finger have been used in the last event
 var previousPoint; // Used to track the previous event point for panning
@@ -507,7 +508,7 @@ function onMouseDrag(event) {
     return;
   }
 
-  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+  if ((activeTool == "draw" || activeTool == "pencil") && path) {
     var step = event.delta / 2;
     step.angle += 90;
     if (activeTool == "draw") {
@@ -593,7 +594,7 @@ function onMouseUp(event) {
   clearInterval(mouseHeld);
   mouseHeld = undefined;
 
-  if (path && (activeTool == "draw" || activeTool == "pencil")) {
+  if ((activeTool == "draw" || activeTool == "pencil") && path) {
     // Close the users path
     path.add(event.point);
     path.closed = true;

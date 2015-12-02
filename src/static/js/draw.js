@@ -1053,9 +1053,6 @@ socket.on('image:add', function(artist, data, position, name) {
   }
 });
 
-
-console.log(view);
-
 // --------------------------------- 
 // SOCKET.IO EVENT FUNCTIONS
 

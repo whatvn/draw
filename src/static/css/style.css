@@ -238,6 +238,9 @@ body {
 .buttonicon-select {
   background-image: url('../../static/img/select.png');
 }
+.buttonicon-zero {
+  background-image: url('../../static/img/zero.png');
+}
 .buttonicon-upload {
   background-image: url('../../static/img/upload.png');
 }

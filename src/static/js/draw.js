@@ -822,6 +822,11 @@ $('#selectTool').on('click', function() {
   $('#myCanvas').css('cursor', 'default');
 });
 
+$('#zeroTool').on('click', function() {
+  // Scroll back to 0,0
+  view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
+});
+
 $('#uploadImage').on('click', function() {
   $('#imageInput').click();
 });

@@ -493,3 +493,9 @@ input[type=checkbox] {
   background-color:#fff;
 }
 
+.textEditor {
+	position: absolute;
+	z-index: 1;
+	min-width: 20px;
+	font-size:1.4em;
+}

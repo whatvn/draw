@@ -418,7 +418,7 @@ function onMouseDown(event) {
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {
-    var point = event.point;
+		var point = event.point;
     path = new Path();
     if (activeTool == "draw") {
       path.fillColor = active_color_rgb;
@@ -535,25 +535,28 @@ function onMouseDrag(event) {
     path.smooth();
     view.draw();
 
-    // Add data to path
-    path_to_send.path.push({
-      top: top,
-      bottom: bottom
-    });
+		// Only broadcast if have a length
+		if (path.length !== 0) {
+			// Add data to path
+			path_to_send.path.push({
+				top: top,
+				bottom: bottom
+			});
 
-    // Send paths every 100ms
-    if (!timer_is_active) {
+			// Send paths every 100ms
+			if (!timer_is_active) {
 
-      send_paths_timer = setInterval(function() {
+				send_paths_timer = setInterval(function() {
 
-        socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
-        path_to_send.path = new Array();
+					socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
+					path_to_send.path = new Array();
 
-      }, 100);
+				}, 100);
 
-    }
+			}
 
-    timer_is_active = true;
+			timer_is_active = true;
+		}
   } else if (activeTool == "select") {
     // Move item locally
     for (x in paper.project.selectedItems) {
@@ -588,6 +591,7 @@ function onMouseDrag(event) {
   }
 }
 
+var textbox;
 
 function onMouseUp(event) {
   // Ignore right mouse button clicks for now
@@ -607,8 +611,10 @@ function onMouseUp(event) {
   mouseHeld = undefined;
 
   if ((activeTool == "draw" || activeTool == "pencil") && path) {
-    // Close the users path
+		// Close the users path
     path.add(event.point);
+		
+		if (path.length !== 0) {
     path.closed = true;
     path.smooth();
     view.draw();
@@ -624,6 +630,43 @@ function onMouseUp(event) {
     clearInterval(send_paths_timer);
     path_to_send.path = new Array();
     timer_is_active = false;
+		} else {
+			// Delete path if it's length is zip
+			path.remove();
+			path = false;
+
+			// Check if a text box was clicked on, if so edit it
+			console.log(event, event.item);
+
+			if (!textbox) {
+				// Open a textbox
+				console.log('create textbox');
+				$('#canvasContainer').append(
+						textbox = $('<div class="textEditor" contenteditable></div>'));
+				// Get the cursor position
+				var point = getEventPoint(event.event, 'client');
+				// Make it relative to the #canvasContainer
+				var containerPosition = $('#canvasContainer').position();
+				point -= new Point(containerPosition.left,
+						containerPosition.top);
+				// Move the textbox
+				textbox.css({
+					left: point.x,
+					top: point.y
+				});
+				textbox.get(0).focus();
+			} else {
+				// Push the text box to the canvas
+				// Get the textbox position
+				var position = textbox.offset();
+				console.log(position, textbox.text());
+				var textPoint = new PointText(position.left, position.top);
+				textPoint.content = textbox.text();
+				textbox.remove();
+				textbox = false;
+				view.draw();
+			}
+		} 
   } else if (activeTool == "select") {
     // End movement timer
     clearInterval(send_item_move_timer);

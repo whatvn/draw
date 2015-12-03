@@ -241,6 +241,9 @@ body {
 .buttonicon-zero {
   background-image: url('../../static/img/zero.png');
 }
+.buttonicon-scale {
+  background-image: url('../../static/img/scale.png');
+}
 .buttonicon-upload {
   background-image: url('../../static/img/upload.png');
 }

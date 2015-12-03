@@ -70,7 +70,11 @@ function positionPickerInCanvas(cursor) {
 function scaleCanvas(scale, scaleDiff, pos) {
   // Determine where the cursor currently is
   var focusPoint = new Point(view.bounds.x, view.bounds.y);
-  focusPoint += (pos / view.zoom);
+  if (pos) { // Point given
+    focusPoint += (pos / view.zoom);
+  } else { // Center of canvas
+    focusPoint += new Point(view.bounds.width, view.bounds.height) / 2;
+  }
 
   // Scale to a minimum 5%
   view.zoom = Math.max(0.05,
@@ -81,7 +85,11 @@ function scaleCanvas(scale, scaleDiff, pos) {
   // Scroll so same point is below pos again, limiting so we don't show -ve
   // of canvas
   var offset = new Point(view.bounds.x, view.bounds.y);
-  offset += (pos / view.zoom);
+  if (pos) { // Point given
+    offset += (pos / view.zoom);
+  } else { // Center of canvas
+    offset += new Point(view.bounds.width, view.bounds.height) / 2;
+  }
   
   var delta = focusPoint - offset;
 
@@ -842,6 +850,10 @@ $('#zeroTool').on('click', function() {
   // Scroll back to 0,0
   view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
   updateCoordinates();
+});
+
+$('#scaleTool').on('click', function() {
+  scaleCanvas(1);
 });
 
 $('#uploadImage').on('click', function() {

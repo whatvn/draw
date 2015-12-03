@@ -363,7 +363,7 @@ function onKeyDown(event) {
       point = new paper.Point(1, 0);
     }
 
-	// Move objects 1 pixel with arrow keys
+  // Move objects 1 pixel with arrow keys
     if (point) {
       moveItemsBy1Pixel(point);
     }
@@ -376,7 +376,7 @@ function onKeyDown(event) {
         key_move_delta += point;
       }
     }
-	
+  
     // Send move updates every 100 ms as batch updates
     if (!key_move_timer_is_active && point) {
       send_key_move_timer = setInterval(function() {
@@ -627,22 +627,27 @@ function exportPNG() {
 function exportPDF() {
   var canvas = document.getElementById('myCanvas');
   var imgData = canvas.toDataURL('image/png');
-  var pdf = new jsPDF();
-console.log(imgData);
-  pdf.addImage(imgData, 'JPEG', 10, 10);
+  var margin = new Point(10, 10);
+  var canvasSize = new Point(canvas.clientWidth, canvas.clientHeight);
+  var a4;
+  var pdfOptions = {
+    format: 'a4',
+    unit: 'pt'
+  };
+  if (canvasSize.x > canvasSize.y) {
+    pdfOptions.orientation = 'l';
+    a4 = new Point(841.89, 595.28); // Values from jsPDF
+  } else {
+    pdfOptions.orientation = 'p';
+    a4 = new Point(595.28,  841.89); // Values from jsPDF
+  }
+  // Calculate a scale factor to fit teh canvas on the pdf page
+  var ratio = canvasSize / (a4 - (margin * 2));
+  ratio = Math.max(ratio.x, ratio.y);
+  var pdf = new jsPDF(pdfOptions);
 
-  pdf.output('dataurlnewwindow');   //for display image in new window
-
-
-//            var output = pdf.output();
-//            return   btoa( output);    //save data on disk
-//  var string = pdf.output('datauristring');
-//  var x = window.open();
-//  x.document.open();
-//  x.document.location=string;
-//  doc.saveAs("e.pdf");
-//  doc.save();
-// doc.output('save', 'filename.pdf'); //Try to save PDF as a file (not works on ie before 10, and some mobile devices)
+  pdf.addImage(imgData, 'PNG', 10, 10, canvasSize.x / ratio, canvasSize.y / ratio);
+  pdf.save(room + '.pdf')
 }
 
 
@@ -801,7 +806,7 @@ var end_external_path = function (points, artist) {
     path.closed = true;
     path.smooth();
     view.draw();
-	
+  
     // Remove the old data
     external_paths[artist] = false;
 

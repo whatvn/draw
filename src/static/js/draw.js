@@ -398,9 +398,11 @@ function onMouseDown(event) {
       var picker = $('#mycolorpicker');
       picker.toggle(); // show the color picker
       if (picker.is(':visible')) {
-        // Mad hackery to get round issues with event.point
-        var targetPos = $(event.event.target).position();
-        var point = event.point + new Point(targetPos.left, targetPos.top);
+        // Get position of cursor
+        var point = getEventPoint(event.event, 'client');
+        var position = $('#myCanvas').position();
+        // Takeaway offset of canvas
+        point -= new Point(position.left, position.top);
         positionPickerInCanvas(point);
       }
     }

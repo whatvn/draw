@@ -1,6 +1,7 @@
 var paper = require('paper');
 var projects = require('./projects.js');
 var db = require('./db.js');
+var Textbox = require('../elements/textbox.js');
 
 projects = projects.projects;
 
@@ -61,6 +62,22 @@ exports.endExternalPath = function (room, points, artist) {
     projects[room].external_paths[artist] = false;
   }
   db.storeProject(room);
+};
+
+exports.addTextbox = function(room, textbox) {
+  var project = projects[room].project;
+  project.activate();
+
+  // Check we have content and a Point
+  if (!textbox.content || !textbox.point
+      || !(textbox.point = new drawing.Point(textbox.point))) {
+    return;
+  }
+  
+  Textbox.paint(drawing, textbox);
+
+  project.view.draw()
+  db.storeProject(room)
 };
 
 exports.clearCanvas = function(room) {

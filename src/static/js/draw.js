@@ -632,7 +632,10 @@ function onMouseDrag(event) {
     // Move item locally
     for (x in paper.project.selectedItems) {
       var item = paper.project.selectedItems[x];
-      item.position += event.delta;
+			// Only move if parent is a Layer (not a group item)
+			if (item.parent instanceof Layer) {
+				item.position += event.delta;
+			}
     }
 
     // Store delta
@@ -651,7 +654,9 @@ function onMouseDrag(event) {
           var itemNames = new Array();
           for (x in paper.project.selectedItems) {
             var item = paper.project.selectedItems[x];
-            itemNames.push(item._name);
+						if (item.parent instanceof Layer) {
+            	itemNames.push(item._name);
+						}
           }
           socket.emit('item:move:progress', room, uid, itemNames, item_move_delta);
           item_move_delta = null;
@@ -814,7 +819,9 @@ function onKeyDown(event) {
           var itemNames = new Array();
           for (x in paper.project.selectedItems) {
             var item = paper.project.selectedItems[x];
-            itemNames.push(item._name);
+						if (item.parent instanceof Layer) {
+            	itemNames.push(item._name);
+						}
           }
           socket.emit('item:move:progress', room, uid, itemNames, key_move_delta);
           key_move_delta = null;
@@ -834,10 +841,12 @@ function onKeyUp(event) {
     if (items) {
       for (x in items) {
         var item = items[x];
-        socket.emit('item:remove', room, uid, item.name);
-        item.remove();
-        view.draw();
+				if (item.parent instanceof Layer) {
+        	socket.emit('item:remove', room, uid, item.name);
+        	item.remove();
+				}
       }
+      view.draw();
     }
   }
 
@@ -876,8 +885,10 @@ function moveItemsBy1Pixel(point) {
   var itemNames = new Array();
   for (x in paper.project.selectedItems) {
     var item = paper.project.selectedItems[x];
-    item.position += point;
-    itemNames.push(item._name);
+		if (item.parent instanceof Layer) {
+	    item.position += point;
+  	  itemNames.push(item._name);
+		}
   }
 
   // Redraw screen for item position update

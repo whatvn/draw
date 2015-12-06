@@ -98,11 +98,6 @@ function scaleCanvas(scale, scaleDiff, pos) {
   var center = view.center;
   var minCenter = view.size / 2;
   var newCenter = center + delta;
-  // Calculate the bad delta: the newCentre - minCenter, keep -ve values
-  var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
-
-  // Add the bad delta to the delta make sure we won't go into the -ves
-  delta -= badDelta;
 
   // Pretty scroll
   view.scrollBy(delta);
@@ -488,11 +483,6 @@ function onMouseDrag(event) {
     var center = view.center;
     var minCenter = view.size / 2;
     var newCenter = center + delta;
-    // Calculate the bad delta: the newCentre - minCenter, keep -ve values
-    var badDelta = Point.min(newCenter - minCenter, new Point(0, 0));
-
-    // Add the bad delta to the delta make sure we won't go into the -ves
-    delta -= badDelta;
 
     var startBounds = view.bounds;
   

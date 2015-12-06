@@ -119,6 +119,54 @@ function updateCoordinates() {
 };
 
 /**
+ * Return a Rectangle that contains all of the Paths in a Group
+ *
+ * @param {Group|Layer} [group] The group (or layer) to scan. If not group is
+ *        given, the active layer will be scanned.
+ * @returns {Rectangle}
+ * @retval {null} Invalid group parameter given
+ */
+function getCanvasCoverage(group) {
+  if (!group) {
+    group = paper.project.activeLayer;
+  }
+
+  if (!(group instanceof Group)) {
+    return null;
+  }
+
+  if (group.children.length !== 0) {
+    var i = 0, bounds = group.children[i].strokeBounds;
+
+    var min = bounds.point;
+    var max = bounds.point + bounds.size;
+
+    while (i < group.children.length) {
+      bounds = group.children[i].strokeBounds;
+      min = Point.min(min, bounds.point);
+      max = Point.max(max, bounds.point + bounds.size);
+
+      i++;
+    }
+
+    return new Rectangle(min, max);
+  }
+}
+
+function zoomToContents() {
+  var bounds = getCanvasCoverage();
+  // Calculate what zoom level we need to fit it all in
+  var xZoom = $('#myCanvas').width() / (bounds.x + bounds.width + 20);
+  var yZoom = $('#myCanvas').height() / (bounds.y + bounds.height + 20);
+  var zoom = Math.min(1, xZoom, yZoom);
+  view.zoom = zoom;
+  // Scroll to 0,0
+  view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
+  view.draw();
+  updateCoordinates();
+}
+
+/**
  * Returns a Point containing the position of the cursor or an averaged
  * position of fingers for the given value.
  *
@@ -775,6 +823,7 @@ $('#myCanvas').bind('drop', function(e) {
 $('#myCanvas').bind('dblclick', function(e) {
   // Zoom to extent of canvas
   if (event.button == 1) {
+    zoomToContents();
   }
 });
 
@@ -860,6 +909,10 @@ $('#zeroTool').on('click', function() {
 
 $('#scaleTool').on('click', function() {
   scaleCanvas(1);
+});
+
+$('#fitTool').on('click', function() {
+  zoomToContents();
 });
 
 $('#uploadImage').on('click', function() {

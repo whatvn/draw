@@ -156,12 +156,14 @@ function getCanvasCoverage(group) {
 function zoomToContents() {
   var bounds = getCanvasCoverage();
   // Calculate what zoom level we need to fit it all in
-  var xZoom = $('#myCanvas').width() / (bounds.x + bounds.width + 20);
-  var yZoom = $('#myCanvas').height() / (bounds.y + bounds.height + 20);
+  var padding = 20;
+  var xZoom = $('#myCanvas').width() / (bounds.width + (2 * padding));
+  var yZoom = $('#myCanvas').height() / (bounds.height + (2 * padding));
   var zoom = Math.min(1, xZoom, yZoom);
   view.zoom = zoom;
   // Scroll to 0,0
-  view.scrollBy(new Point(- view.bounds.x, - view.bounds.y));
+  view.scrollBy(new Point((bounds.x - padding) - view.bounds.x,
+      (bounds.y - padding)- view.bounds.y));
   view.draw();
   updateCoordinates();
 }

@@ -772,6 +772,12 @@ $('#myCanvas').bind('drop', function(e) {
   }
 });
 
+$('#myCanvas').bind('dblclick', function(e) {
+  // Zoom to extent of canvas
+  if (event.button == 1) {
+  }
+});
+
 //@todo Find why view has no on function view.on('resize', updateCoordinates);
 
 // --------------------------------- 

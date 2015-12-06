@@ -197,6 +197,7 @@ function paintTextbox(options) {
  *
  * @param event {Event} The event to extract the position from
  * @param type {'client'|'page'|'screen'} The position to extract
+ * @retval {null} no value to return (eg zero touches)
  */
 function getEventPoint(event, type) {
   //@TODO if (!(event instanceof Event)) throw new TypeError('event needs to be an actual Event object (not a ctor event)');
@@ -204,12 +205,24 @@ function getEventPoint(event, type) {
   if (['client', 'page', 'screen'].indexOf(type) === -1) throw new RangeError('type needs to be either client, page or screen');
 
   if (event.touches) {
+    var touches;
+    if (event.touches.length === 0) {
+      if (event.changedTouches && event.changedTouches.length !== 0) {
+        touches = event.changedTouches;
+      } else {
+        return null;
+      }
+    } else {
+      touches = event.touches;
+    }
+
     var point = new Point();
     var t;
-    for (t in event.touches) {
-      point += new Point(event.touches[t][type + 'X'], event.touches[t][type + 'Y']);
+    for (t in touches) {
+      console.log(touches[t], touches[t][type + 'X'], touches[t][type + 'Y']);
+      point += new Point(touches[t][type + 'X'], touches[t][type + 'Y']);
     }
-    point = point / event.touches.length;
+    point = point / touches.length;
     return point;
   } else {
     return new Point(event[type + 'X'], event[type + 'Y']);
@@ -632,10 +645,10 @@ function onMouseDrag(event) {
     // Move item locally
     for (x in paper.project.selectedItems) {
       var item = paper.project.selectedItems[x];
-			// Only move if parent is a Layer (not a group item)
-			if (item.parent instanceof Layer) {
-				item.position += event.delta;
-			}
+      // Only move if parent is a Layer (not a group item)
+      if (item.parent instanceof Layer) {
+        item.position += event.delta;
+      }
     }
 
     // Store delta
@@ -654,9 +667,9 @@ function onMouseDrag(event) {
           var itemNames = new Array();
           for (x in paper.project.selectedItems) {
             var item = paper.project.selectedItems[x];
-						if (item.parent instanceof Layer) {
-            	itemNames.push(item._name);
-						}
+            if (item.parent instanceof Layer) {
+              itemNames.push(item._name);
+            }
           }
           socket.emit('item:move:progress', room, uid, itemNames, item_move_delta);
           item_move_delta = null;
@@ -690,22 +703,22 @@ function onMouseUp(event) {
     // Close the users path
     path.add(event.point);
     
-    if (path.length !== 0) {
-    path.closed = true;
-    path.smooth();
-    view.draw();
+    if (path.length > 5) {
+      path.closed = true;
+      path.smooth();
+      view.draw();
 
-    // Send the path to other users
-    path_to_send.end = event.point;
-    // This covers the case where paths are created in less than 100 seconds
-    // it does add a duplicate segment, but that is okay for now.
-    socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
-    socket.emit('draw:end', room, uid, JSON.stringify(path_to_send));
+      // Send the path to other users
+      path_to_send.end = event.point;
+      // This covers the case where paths are created in less than 100 seconds
+      // it does add a duplicate segment, but that is okay for now.
+      socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
+      socket.emit('draw:end', room, uid, JSON.stringify(path_to_send));
 
-    // Stop new path data being added & sent
-    clearInterval(send_paths_timer);
-    path_to_send.path = new Array();
-    timer_is_active = false;
+      // Stop new path data being added & sent
+      clearInterval(send_paths_timer);
+      path_to_send.path = new Array();
+      timer_is_active = false;
     } else {
       // Delete path if it's length is zip
       path.remove();
@@ -819,9 +832,9 @@ function onKeyDown(event) {
           var itemNames = new Array();
           for (x in paper.project.selectedItems) {
             var item = paper.project.selectedItems[x];
-						if (item.parent instanceof Layer) {
-            	itemNames.push(item._name);
-						}
+            if (item.parent instanceof Layer) {
+              itemNames.push(item._name);
+            }
           }
           socket.emit('item:move:progress', room, uid, itemNames, key_move_delta);
           key_move_delta = null;
@@ -841,10 +854,10 @@ function onKeyUp(event) {
     if (items) {
       for (x in items) {
         var item = items[x];
-				if (item.parent instanceof Layer) {
-        	socket.emit('item:remove', room, uid, item.name);
-        	item.remove();
-				}
+        if (item.parent instanceof Layer) {
+          socket.emit('item:remove', room, uid, item.name);
+          item.remove();
+        }
       }
       view.draw();
     }
@@ -885,10 +898,10 @@ function moveItemsBy1Pixel(point) {
   var itemNames = new Array();
   for (x in paper.project.selectedItems) {
     var item = paper.project.selectedItems[x];
-		if (item.parent instanceof Layer) {
-	    item.position += point;
-  	  itemNames.push(item._name);
-		}
+    if (item.parent instanceof Layer) {
+      item.position += point;
+      itemNames.push(item._name);
+    }
   }
 
   // Redraw screen for item position update

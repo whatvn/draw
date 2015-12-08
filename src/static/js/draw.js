@@ -443,7 +443,7 @@ function drawEditTextbox(point, content) {
 
   // Add existing content
   if (content && typeof content == "string") {
-    content = content.replace("\n", '<br>');
+    content = content.replace(/\n/g, '<br>');
     textbox.html(content);
   }
 

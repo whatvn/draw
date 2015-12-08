@@ -136,10 +136,6 @@ function parseEditable(dom) {
   return text.trim("\n");
 }
 
-function toCanvasCoordinates(coords) {
-  return (coords / view.zoom) + view.bounds.point;
-}
-
 /**
  * Update the stats in the coordinates box
  */
@@ -349,6 +345,167 @@ function getParameterByName(name) {
   }
 }
 
+/**
+ * Convert Point coordinates from DOM coordinates (pixels) relative to the
+ * canvas DOMObject to Point coordinates on the canvas. Takes into account
+ * canvas panning and scrolling
+ *
+ * @param {paper.Point} Coordinates relative to the canvas DOMObject to
+ *        convert
+ * 
+ * @returns {paper.Point} Coordinates on the canvas
+ */
+function toCanvasPoint(domPoint) {
+  if (!(domPoint instanceof Point)) {
+    throw new TypeError('domPoint must be a Point');
+  }
+
+  return (domPoint / view.zoom) + view.bounds.point;
+}
+
+/**
+ * Convert Point coordinates from Point coordinates on the canvas to DOM
+ * coordinates (pixels) relative to the canvas DOMObject to . Takes into
+ * account canvas panning and scrolling.
+ *
+ * @param {paper.Point} domPoint DOM coordinates to convert
+ * 
+ * @returns {paper.Point} Coordinates relative to the canvas DOMObject
+ */
+function toDomPoint(canvasPoint) {
+  if (!(canvasPoint instanceof Point)) {
+    throw new TypeError('domPoint must be a Point');
+  }
+
+  return (canvasPoint - view.bounds.point) * view.zoom;
+}
+
+/**
+ * Deletes the given items from the canvas
+ *
+ * @param {Item|Array.paper/Item} items Items to delete
+ */
+function deleteItems(items) {
+  var i, item;
+
+  if (!(items instanceof Array)) {
+    items = [items];
+  }
+
+  for (x in items) {
+    if ((item = items[x]) instanceof Item) {
+      if (item.name && item.parent instanceof Layer) {
+        socket.emit('item:remove', room, uid, item.name);
+        item.remove();
+      }
+    }
+  }
+  view.draw();
+}
+
+
+/// Textbox-specific stuff {{
+var fontSize = 14;
+var padding = 5;
+var textbox;
+var textboxClosed;
+
+/** 
+ * Creates a contenteditable div that is used to allow editing of canvas
+ * text.
+ *
+ * @param {paper.Point} point Position (in DOM coordinates relative to the canvas)
+ *        to place the div
+ * @param {string} content Existing contents of the textbox
+ */
+function drawEditTextbox(point, content) {
+  // Open a textbox
+  $('#canvasContainer')
+      .append(textbox = $('<div class="textEditor" contenteditable></div>'));
+  // Move the textbox
+  textbox.css({
+    left: point.x,
+    top: point.y,
+    fontSize: (fontSize * view.zoom) + 'px',
+    padding: (padding * view.zoom) + 'px'
+  });
+
+  // Add existing content
+  if (content && typeof content == "string") {
+    content = content.replace("\n", '<br>');
+    textbox.html(content);
+  }
+
+  textbox.get(0).focus();
+}
+
+/**
+ * Edits the given textbox
+ *
+ * @param {Item} item Textbox item
+ *
+ * @returns {boolean} True if change to editing of textbox was successful,
+ *          false if the given item wasn't detected as a textbox or the
+ *          textbox is not visible
+ */
+function editTextbox(item) {
+  console.log(item);
+  if (!(item instanceof Item) || !isaTextbox(item)) {
+    return false;
+  }
+
+  // Check if textbox is currently visible
+  /// @TODO Update version of paper.js
+  //if (!item.isInside(view.bounds)) {
+  if (item.bounds.point >= view.bounds.point
+      && (item.bounds.point + item.bounds.size) <= 
+      (view.bounds.point + view.bounds.size)) {
+    return false;
+  }
+
+  // Get current coordinates of textbox
+  var point = item.bounds.point;
+
+  // Convert to DOM pixels
+  point = toDomPoint(point);
+
+  // Find the paper.PointText
+  var textPoint, c = 0;
+  while (c < item.children.length) {
+    if (item.children[c] instanceof PointText) {
+      textPoint = item.children[c];
+      break;
+    }
+    c++;
+  }
+
+  if (!textPoint) {
+    return false;
+  }
+
+  // Get the current contents
+  var contents = textPoint.content;
+  
+  // Delete current textbox
+  deleteItems(item);
+
+  // Draw new editTextbox
+  drawEditTextbox(point, contents);
+}
+
+/**
+ * Tests whether the given item is a textbox item
+ *
+ * @param {paper.Item} Item to test to see if it is a textbox item
+ *
+ * @returns {boolean} true if it is, false if it isn't
+ */
+function isaTextbox(item) {
+  return (item.name.search(':textbox:') !== -1 && item.children);
+}
+
+///}} Textbox-specific stuff
+
 // Join the room
 socket.emit('subscribe', {
   room: room
@@ -434,6 +591,7 @@ var path; // Used to store the path currently being drawn
 var fingers; // Used for tracking how many finger have been used in the last event
 var previousPoint; // Used to track the previous event point for panning
 var previousFingerSeparation; // Used to store how far apart the fingers were at the start
+var overItem;
 
 function onMouseDown(event) {
     event.preventDefault();
@@ -479,6 +637,13 @@ function onMouseDown(event) {
     return;
   }
 
+  // Set overItem
+  if (event.item) {
+    overItem = event.item;
+  } else {
+    overItem = false;
+  }
+
   mouseTimer = 0;
   if (!mouseHeld) {
     mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
@@ -499,6 +664,35 @@ function onMouseDown(event) {
       }
     }
   }, 100);
+  }
+
+  // Close textbox if one is currently open
+  if (textbox) {
+    // Get the textbox position
+    var position = textbox.position();
+    position = toCanvasPoint(new Point(position.left, position.top));
+
+    // Convert to canvas coordinates
+
+    var text;
+    if (text = parseEditable(textbox)) {
+      var options = {
+        point: position,
+        content: text,
+        name: uid + ":textbox:" + (++paper_object_count)
+      };
+      
+      paintTextbox(options);
+      // Convert point to array
+      options.point = [options.point.x, options.point.y];
+      socket.emit('draw:textbox', room, uid, JSON.stringify(options));
+
+      view.draw();
+      textboxClosed = true;
+    }
+    
+    textbox.remove();
+    textbox = false;
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {
@@ -604,6 +798,13 @@ function onMouseDrag(event) {
     return;
   }
 
+  // Set overItem
+  if (event.item) {
+    overItem = event.item;
+  } else {
+    overItem = false;
+  }
+
   if ((activeTool == "draw" || activeTool == "pencil") && path) {
     var step = event.delta / 2;
     step.angle += 90;
@@ -680,7 +881,6 @@ function onMouseDrag(event) {
   }
 }
 
-var textbox;
 
 function onMouseUp(event) {
   // Ignore right mouse button clicks for now
@@ -719,53 +919,20 @@ function onMouseUp(event) {
     path_to_send.path = new Array();
     timer_is_active = false;
   } else if (activeTool == "text") {
-    // Check if a text box was clicked on, if so edit it
-    var fontSize = 14;
-    var padding = 5;
-
-    if (!textbox) { // Create a new textbox if we're not editing one already
-      // Open a textbox
-      $('#canvasContainer').append(
-          textbox = $('<div class="textEditor" contenteditable></div>'));
-      // Get the cursor position
-      var point = getEventPoint(event.event, 'client');
-      // Make it relative to the #canvasContainer
-      var containerPosition = $('#canvasContainer').position();
-      point -= new Point(containerPosition.left,
-          containerPosition.top);
-      // Move the textbox
-      textbox.css({
-        left: point.x,
-        top: point.y,
-        fontSize: (fontSize * view.zoom) + 'px',
-        padding: (padding * view.zoom) + 'px'
-      });
-      textbox.get(0).focus();
-    } else { // Push the currently being edited textbox to the canvas
-      // Get the textbox position
-      var position = textbox.position();
-      position = toCanvasCoordinates(new Point(position.left, position.top));
-
-      // Convert to canvas coordinates
-
-      var text;
-      if (text = parseEditable(textbox)) {
-        var options = {
-          point: position,
-          content: text,
-          name: uid + ":textbox:" + (++paper_object_count)
-        };
+    // @TODO Check if a text box was clicked on, if so edit it
+     if (!textboxClosed) {
+      if (overItem && isaTextbox(overItem)) {
+        editTextbox(overItem);
+      } else if (!textbox) { // Create a new textbox if we're not editing one already
+        // Get the cursor position
+        var point = getEventPoint(event.event, 'client');
+        // Make it relative to the #canvasContainer
+        var containerPosition = $('#canvasContainer').position();
+        point -= new Point(containerPosition.left,
+        containerPosition.top);
         
-        paintTextbox(options);
-        // Convert point to array
-        options.point = [options.point.x, options.point.y];
-        socket.emit('draw:textbox', room, uid, JSON.stringify(options));
-
-        view.draw();
+        drawEditTextbox(point);
       }
-      
-      textbox.remove();
-      textbox = false;
     }
   } else if (activeTool == "select") {
     // End movement timer
@@ -785,6 +952,8 @@ function onMouseUp(event) {
     item_move_delta = null;
     item_move_timer_is_active = false;
   }
+
+  textboxClosed = false;
 }
 
 var key_move_delta;
@@ -846,14 +1015,7 @@ function onKeyUp(event) {
     // Delete selected items
     var items = paper.project.selectedItems;
     if (items) {
-      for (x in items) {
-        var item = items[x];
-        if (item.parent instanceof Layer) {
-          socket.emit('item:remove', room, uid, item.name);
-          item.remove();
-        }
-      }
-      view.draw();
+      deleteItems(items);
     }
   }
 
@@ -918,6 +1080,22 @@ $('#myCanvas').bind('drop', function(e) {
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
     uploadImage(file);
+  }
+});
+
+$('#myCanvas').bind('dblclick', function(e) {
+  //Edit textbox
+  //@TODO if (event.button === 0
+  var item;
+  // Check if we have an item being clicked on
+  if (e.item) {
+    item = e.item;
+  } else if (overItem) {
+    item = overItem;
+  }
+
+  if (item && isaTextbox(item)) {
+    editTextbox(item);
   }
 });
 

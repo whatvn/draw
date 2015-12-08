@@ -703,76 +703,70 @@ function onMouseUp(event) {
     // Close the users path
     path.add(event.point);
     
-    if (path.length > 5) {
-      path.closed = true;
-      path.smooth();
-      view.draw();
+    path.closed = true;
+    path.smooth();
+    view.draw();
 
-      // Send the path to other users
-      path_to_send.end = event.point;
-      // This covers the case where paths are created in less than 100 seconds
-      // it does add a duplicate segment, but that is okay for now.
-      socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
-      socket.emit('draw:end', room, uid, JSON.stringify(path_to_send));
+    // Send the path to other users
+    path_to_send.end = event.point;
+    // This covers the case where paths are created in less than 100 seconds
+    // it does add a duplicate segment, but that is okay for now.
+    socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
+    socket.emit('draw:end', room, uid, JSON.stringify(path_to_send));
 
-      // Stop new path data being added & sent
-      clearInterval(send_paths_timer);
-      path_to_send.path = new Array();
-      timer_is_active = false;
-    } else {
-      // Delete path if it's length is zip
-      path.remove();
-      path = false;
+    // Stop new path data being added & sent
+    clearInterval(send_paths_timer);
+    path_to_send.path = new Array();
+    timer_is_active = false;
+  } else if (activeTool == "text") {
+    // Check if a text box was clicked on, if so edit it
+    var fontSize = 14;
+    var padding = 5;
 
-      // Check if a text box was clicked on, if so edit it
-      var fontSize = 14;
-      var padding = 5;
+    if (!textbox) { // Create a new textbox if we're not editing one already
+      // Open a textbox
+      $('#canvasContainer').append(
+          textbox = $('<div class="textEditor" contenteditable></div>'));
+      // Get the cursor position
+      var point = getEventPoint(event.event, 'client');
+      // Make it relative to the #canvasContainer
+      var containerPosition = $('#canvasContainer').position();
+      point -= new Point(containerPosition.left,
+          containerPosition.top);
+      // Move the textbox
+      textbox.css({
+        left: point.x,
+        top: point.y,
+        fontSize: (fontSize * view.zoom) + 'px',
+        padding: (padding * view.zoom) + 'px'
+      });
+      textbox.get(0).focus();
+    } else { // Push the currently being edited textbox to the canvas
+      // Get the textbox position
+      var position = textbox.position();
+      position = toCanvasCoordinates(new Point(position.left, position.top));
 
-      if (!textbox) { // Create a new textbox if we're not editing one already
-        // Open a textbox
-        $('#canvasContainer').append(
-            textbox = $('<div class="textEditor" contenteditable></div>'));
-        // Get the cursor position
-        var point = getEventPoint(event.event, 'client');
-        // Make it relative to the #canvasContainer
-        var containerPosition = $('#canvasContainer').position();
-        point -= new Point(containerPosition.left,
-            containerPosition.top);
-        // Move the textbox
-        textbox.css({
-          left: point.x,
-          top: point.y,
-          fontSize: (fontSize * view.zoom) + 'px',
-          padding: (padding * view.zoom) + 'px'
-        });
-        textbox.get(0).focus();
-      } else { // Push the currently being edited textbox to the canvas
-        // Get the textbox position
-        var position = textbox.position();
-        position = toCanvasCoordinates(new Point(position.left, position.top));
+      // Convert to canvas coordinates
 
-        // Convert to canvas coordinates
-
-        var text;
-        if (text = parseEditable(textbox)) {
-          var options = {
-            point: position,
-            content: text,
-            name: uid + ":" + (++paper_object_count)
-          };
-          
-          paintTextbox(options);
-          // Convert point to array
-          options.point = [options.point.x, options.point.y];
-          socket.emit('draw:textbox', room, uid, JSON.stringify(options));
-
-          view.draw();
-        }
+      var text;
+      if (text = parseEditable(textbox)) {
+        var options = {
+          point: position,
+          content: text,
+          name: uid + ":textbox:" + (++paper_object_count)
+        };
         
-        textbox.remove();
-        textbox = false;
+        paintTextbox(options);
+        // Convert point to array
+        options.point = [options.point.x, options.point.y];
+        socket.emit('draw:textbox', room, uid, JSON.stringify(options));
+
+        view.draw();
       }
-    } 
+      
+      textbox.remove();
+      textbox = false;
+    }
   } else if (activeTool == "select") {
     // End movement timer
     clearInterval(send_item_move_timer);
@@ -999,6 +993,16 @@ $('#selectTool').on('click', function() {
   }); // set the selecttool css to show it as active
   activeTool = "select";
   $('#myCanvas').css('cursor', 'default');
+});
+$('#textTool').on('click', function() {
+  $('#editbar > ul > li > a').css({
+    background: ""
+  }); // remove the backgrounds from other buttons
+  $('#textTool > a').css({
+    background: "#eee"
+  }); // set the texttool css to show it as active
+  activeTool = "text";
+  $('#myCanvas').css('cursor', 'crosshair');
 });
 
 $('#zeroTool').on('click', function() {

@@ -145,45 +145,54 @@ function updateCoordinates() {
 };
 
 /**
- * Temporary copy of Textbox.paint
+ * Return a Rectangle that contains all of the Paths in a Group
+ *
+ * @param {Group|Layer} [group] The group (or layer) to scan. If not group is
+ *        given, the active layer will be scanned.
+ * @returns {Rectangle}
+ * @retval {null} Invalid group parameter given
  */
-function paintTextbox(options) {
-  options = $.extend({
-    padding: 5,
-    fontSize: 12,
-    fillColor: new Color(1, 0.8),
-    color: new Color(0),
-    point: new Point(0, 0)
-  }, options);
-
-  var background = new Path.Rectangle({
-    topLeft: options.point,
-    bottomRight: options.point + 1
-  });
-  //background.fillColor = 'white';
-  background.fillColor = options.fillColor;
-
-  var textPoint = new PointText({
-    point: options.point + options.padding + new Point(0, options.fontSize),
-    fontSize: options.fontSize,
-    fillColor: options.color
-  });
-  textPoint.content = options.content;
-  
-  // Make the rectangle the right size for the text
-  var size = new Point(textPoint.bounds.width, textPoint.bounds.height)
-      + (options.padding * 2);
-  background.bounds.size = size;
-
-  // Create a paper.Group to store everything in
-  var group = new Group([background, textPoint]);
-  if (options.name) {
-    group.name = options.name;
+function getCanvasCoverage(group) {
+  if (!group) {
+    group = paper.project.activeLayer;
   }
 
-  return group;
+  if (!(group instanceof Group)) {
+    return null;
+  }
+
+  if (group.children.length !== 0) {
+    var i = 0, bounds = group.children[i].strokeBounds;
+
+    var min = bounds.point;
+    var max = bounds.point + bounds.size;
+
+    while (i < group.children.length) {
+      bounds = group.children[i].strokeBounds;
+      min = Point.min(min, bounds.point);
+      max = Point.max(max, bounds.point + bounds.size);
+
+      i++;
+    }
+
+    return new Rectangle(min, max);
+  }
 }
 
+function zoomToContents() {
+  var bounds = getCanvasCoverage();
+  // Calculate what zoom level we need to fit it all in
+  var padding = 20;
+  var xZoom = $('#myCanvas').width() / (bounds.width + (2 * padding));
+  var yZoom = $('#myCanvas').height() / (bounds.height + (2 * padding));
+  var zoom = Math.min(1, xZoom, yZoom);
+  view.zoom = zoom;
+  // Scroll to 0,0
+  view.scrollBy(new Point((bounds.x - padding) - view.bounds.x,
+      (bounds.y - padding)- view.bounds.y));
+  view.draw();
+  updateCoordinates();
+}
 
 /**
  * Returns a Point containing the position of the cursor or an averaged
@@ -491,6 +500,46 @@ function editTextbox(item) {
 
   // Draw new editTextbox
   drawEditTextbox(point, contents);
+}
+
+/**
+ * Temporary copy of Textbox.paint
+ */
+function paintTextbox(options) {
+  options = $.extend({
+    padding: 5,
+    fontSize: 12,
+    fillColor: new Color(1, 0.8),
+    color: new Color(0),
+    point: new Point(0, 0)
+  }, options);
+
+  var background = new Path.Rectangle({
+    topLeft: options.point,
+    bottomRight: options.point + 1
+  });
+  //background.fillColor = 'white';
+  background.fillColor = options.fillColor;
+
+  var textPoint = new PointText({
+    point: options.point + options.padding + new Point(0, options.fontSize),
+    fontSize: options.fontSize,
+    fillColor: options.color
+  });
+  textPoint.content = options.content;
+  
+  // Make the rectangle the right size for the text
+  var size = new Point(textPoint.bounds.width, textPoint.bounds.height)
+      + (options.padding * 2);
+  background.bounds.size = size;
+
+  // Create a paper.Group to store everything in
+  var group = new Group([background, textPoint]);
+  if (options.name) {
+    group.name = options.name;
+  }
+
+  return group;
 }
 
 /**
@@ -1084,7 +1133,12 @@ $('#myCanvas').bind('drop', function(e) {
 });
 
 $('#myCanvas').bind('dblclick', function(e) {
-  //Edit textbox
+  // Zoom to extent of canvas
+  if (event.button == 1) {
+    zoomToContents();
+  }
+  
+	//Edit textbox
   //@TODO if (event.button === 0
   var item;
   // Check if we have an item being clicked on
@@ -1096,7 +1150,7 @@ $('#myCanvas').bind('dblclick', function(e) {
 
   if (item && isaTextbox(item)) {
     editTextbox(item);
-  }
+	}
 });
 
 //@todo Find why view has no on function view.on('resize', updateCoordinates);
@@ -1191,6 +1245,10 @@ $('#zeroTool').on('click', function() {
 
 $('#scaleTool').on('click', function() {
   scaleCanvas(1);
+});
+
+$('#fitTool').on('click', function() {
+  zoomToContents();
 });
 
 $('#uploadImage').on('click', function() {

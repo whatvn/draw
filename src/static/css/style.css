@@ -247,6 +247,9 @@ body {
 .buttonicon-scale {
   background-image: url('../../static/img/scale.png');
 }
+.buttonicon-fit {
+  background-image: url('../../static/img/fit.png');
+}
 .buttonicon-upload {
   background-image: url('../../static/img/upload.png');
 }

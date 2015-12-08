@@ -123,9 +123,11 @@ function parseEditable(dom) {
     if (this.nodeType === Node.TEXT_NODE) {
       text += this.nodeValue;
     } else if (this.nodeType === Node.ELEMENT_NODE) {
-      //node.tagName
-      // Check if the block element
-      if ($(this).css('display') == 'block') {
+      // Check for br elements using node.tagName
+      if (this.tagName === 'BR') {
+        text += "\n";
+      } else if ($(this).css('display') == 'block') { /** Chrome uses divs to
+          * do newlines, so check for all block elements as a catch all */
         text += (text.endsWith("\n") ? '' : "\n") + parseEditable($(this)) + "\n";
       } else {
         text += parseEditable($(this));

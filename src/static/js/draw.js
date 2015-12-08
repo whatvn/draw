@@ -257,6 +257,11 @@ $(document).ready(function() {
   });
 
   $('#myCanvas').bind('wheel', function(event) {
+    // Close textbox if one is currently open
+    if (textbox) {
+      writeEditTextbox();
+    }
+
     // Find the scroll delta
     var delta;
 
@@ -444,6 +449,38 @@ function drawEditTextbox(point, content) {
 }
 
 /**
+ * Writes a editTextbox to the canvas
+ */
+function writeEditTextbox() {
+  if (textbox) {
+    // Get the textbox position
+    var position = textbox.position();
+    position = toCanvasPoint(new Point(position.left, position.top));
+
+    // Convert to canvas coordinates
+
+    var text;
+    if (text = parseEditable(textbox)) {
+      var options = {
+        point: position,
+        content: text,
+        name: uid + ":textbox:" + (++paper_object_count)
+      };
+      
+      paintTextbox(options);
+      // Convert point to array
+      options.point = [options.point.x, options.point.y];
+      socket.emit('draw:textbox', room, uid, JSON.stringify(options));
+
+      view.draw();
+    }
+    
+    textbox.remove();
+    textbox = false;
+  }
+}
+
+/**
  * Edits the given textbox
  *
  * @param {Item} item Textbox item
@@ -453,7 +490,6 @@ function drawEditTextbox(point, content) {
  *          textbox is not visible
  */
 function editTextbox(item) {
-  console.log(item);
   if (!(item instanceof Item) || !isaTextbox(item)) {
     return false;
   }
@@ -461,9 +497,12 @@ function editTextbox(item) {
   // Check if textbox is currently visible
   /// @TODO Update version of paper.js
   //if (!item.isInside(view.bounds)) {
-  if (item.bounds.point >= view.bounds.point
-      && (item.bounds.point + item.bounds.size) <= 
-      (view.bounds.point + view.bounds.size)) {
+  if (item.bounds.point.x < view.bounds.point.x
+    || item.bounds.point.y < view.bounds.point.y
+    || (item.bounds.point.x + item.bounds.size.x) >
+    (view.bounds.point.x + view.bounds.size.x)
+    || (item.bounds.point.y + item.bounds.size.y) >
+    (view.bounds.point.y + view.bounds.size.y)) {
     return false;
   }
 
@@ -653,6 +692,14 @@ function onMouseDown(event) {
     picker.toggle(); // show the color picker
   }
 
+  // Close textbox if one is currently open
+  if (textbox) {
+    writeEditTextbox();
+    if (event.event.button !== 1) {
+      textboxClosed = true;
+    }
+  }
+
   // Store the number of fingers we have so we can use it on mouseUp
   if (event.event.touches) {
     fingers = event.event.touches.length;
@@ -708,35 +755,6 @@ function onMouseDown(event) {
       }
     }
   }, 100);
-  }
-
-  // Close textbox if one is currently open
-  if (textbox) {
-    // Get the textbox position
-    var position = textbox.position();
-    position = toCanvasPoint(new Point(position.left, position.top));
-
-    // Convert to canvas coordinates
-
-    var text;
-    if (text = parseEditable(textbox)) {
-      var options = {
-        point: position,
-        content: text,
-        name: uid + ":textbox:" + (++paper_object_count)
-      };
-      
-      paintTextbox(options);
-      // Convert point to array
-      options.point = [options.point.x, options.point.y];
-      socket.emit('draw:textbox', room, uid, JSON.stringify(options));
-
-      view.draw();
-      textboxClosed = true;
-    }
-    
-    textbox.remove();
-    textbox = false;
   }
 
   if (activeTool == "draw" || activeTool == "pencil") {

@@ -420,6 +420,7 @@ var fontSize = 14;
 var padding = 5;
 var textbox;
 var textboxClosed;
+var textboxIdentifier = ':textbox:';
 
 /** 
  * Creates a contenteditable div that is used to allow editing of canvas
@@ -466,7 +467,7 @@ function writeEditTextbox() {
       var options = {
         point: position,
         content: text,
-        name: uid + ":textbox:" + (++paper_object_count)
+        name: uid + textboxIdentifier + (++paper_object_count)
       };
       
       paintTextbox(options);
@@ -586,7 +587,28 @@ function paintTextbox(options) {
  * @returns {boolean} true if it is, false if it isn't
  */
 function isaTextbox(item) {
-  return (item.name.search(':textbox:') !== -1 && item.children);
+  return (item.name.search(textboxIdentifier) !== -1 && item.children);
+}
+
+function moveBelowTextboxes(path) {
+  console.log(paper.project.activeLayer.children);
+  // Move path to below any textboxes
+  var children = paper.project.activeLayer.children;
+
+  console.log(children, children.length);
+
+  for (c = children.length - 1; c >= 0; c--) {
+    if (children[c] == path) {
+      continue;
+    }
+
+    if (children[c].name.search(textboxIdentifier) === -1) {
+      path.insertAbove(children[c]);
+      break;
+    }
+  }
+
+  view.draw();
 }
 
 ///}} Textbox-specific stuff
@@ -964,7 +986,7 @@ function onMouseUp(event) {
     
     path.closed = true;
     path.smooth();
-    view.draw();
+    moveBelowTextboxes(path);
 
     // Send the path to other users
     path_to_send.end = event.point;
@@ -1148,7 +1170,7 @@ $('#myCanvas').bind('dblclick', function(e) {
     zoomToContents();
   }
   
-	//Edit textbox
+  //Edit textbox
   //@TODO if (event.button === 0
   var item;
   // Check if we have an item being clicked on
@@ -1160,7 +1182,7 @@ $('#myCanvas').bind('dblclick', function(e) {
 
   if (item && isaTextbox(item)) {
     editTextbox(item);
-	}
+  }
 });
 
 //@todo Find why view has no on function view.on('resize', updateCoordinates);
@@ -1503,7 +1525,7 @@ var end_external_path = function(points, artist) {
     path.add(new Point(points.end[1], points.end[2]));
     path.closed = true;
     path.smooth();
-    view.draw();
+    moveBelowTextboxes(path);
 
     // Remove the old data
     external_paths[artist] = false;

@@ -1,6 +1,7 @@
 /**
  * Textbox element
  */
+var textboxIdentifier = ':textbox:';
 
 var extend = require('extend');
 
@@ -54,3 +55,19 @@ exports.paint = function(paper, options) {
   return group;
 };
 
+
+exports.moveBelowTextboxes = function(paper, path) {
+  // Move path to below any textboxes
+  var children = paper.project.activeLayer.children;
+
+  for (c = children.length - 1; c >= 0; c--) {
+    if (children[c] == path) {
+      continue;
+    }
+
+    if (children[c].name.search(textboxIdentifier) === -1) {
+      path.insertAbove(children[c]);
+      break;
+    }
+  }
+};

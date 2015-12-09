@@ -57,6 +57,7 @@ exports.endExternalPath = function (room, points, artist) {
     path.add(new drawing.Point(points.end[1], points.end[2]));
     path.closed = true;
     path.smooth();
+    Textbox.moveBelowTextboxes(drawing, path);
     project.view.draw();
     // Remove the old data
     projects[room].external_paths[artist] = false;

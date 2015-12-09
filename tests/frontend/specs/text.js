@@ -10,7 +10,7 @@ describe("Textbox", function() {
     firstPadName = helper.newPad(done);
     setTimeout(function() { // Give it a sec for xhr polling
       var paper = window.frames[0].paper;
-      paper.view.zoom = 2;
+      paper.view.zoom = zoom;
       paper.view.draw();
     }, 500);
     this.timeout(60000);
@@ -106,11 +106,14 @@ describe("Textbox", function() {
     done();
   });
 
-  /*it("textbox was saved", function(done) {
+  it("textbox was saved", function(done) {
     this.timeout(10000);
     padName = helper.newPad(function() {
       var padsEqual = padName == firstPadName;
       if (padsEqual) {
+        var paper = window.frames[0].paper;
+        paper.view.zoom = zoom;
+        paper.view.draw();
         reloaded = true;
       }
       expect(padsEqual).to.be(true); // Expect old pad name to be new pad name (reloaded same pad)
@@ -151,12 +154,12 @@ describe("Textbox", function() {
     expect(pointText).not.to.be(false);
 
     expect(pointText.content).to.be("Test line 1\nTest line 2\nTest line 3");
-    
+   
     done();
-  });*/
+  });
 
   it('can edit the textbox', function(done) {
-    this.timeout(1000);
+    this.timeout(79000);
 
     var chrome$ = helper.padChrome$;
     var paper = window.frames[0].paper;
@@ -164,6 +167,7 @@ describe("Textbox", function() {
     // Mouse clicks and drags to create path
     var canvas = chrome$("#myCanvas");
     // Change to the text tool
+    chrome$('#textTool').click();
     canvas.simulate('mousedown', {clientX: x + 10, clientY: y + 10});
     canvas.simulate('mouseup', {clientX: x + 10, clientY: y + 10});
     canvas.simulate('click', {clientX: x + 10, clientY: y + 10});

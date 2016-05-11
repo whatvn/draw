@@ -3,7 +3,7 @@
 tool.minDistance = 10;
 tool.maxDistance = 45;
 
-var room = window.location.pathname.split("/")[2];
+var room = /.*\/([^?]+)/.exec(window.location.pathname)[1];
 
 function pickColor(color) {
   $('#color').val(color);

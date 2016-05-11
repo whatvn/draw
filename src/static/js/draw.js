@@ -333,7 +333,8 @@ function scrolled(x, y, delta) {
 $('#activeColorSwatch').css('background-color', $('.colorSwatch.active').css('background-color'));
 
 // Initialise Socket.io
-var socket = io.connect({ path: "/etherdraw/socket.io"});
+var base_path = /(\/.+\/)d\/.*/.exec(window.location.pathname)[1];
+var socket = io.connect({ path: base_path + "socket.io"});
 
 // Random User ID
 // Used when sending data

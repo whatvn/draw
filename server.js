@@ -31,6 +31,8 @@ if(settings.ssl){
   var server = https.createServer(options, app).listen(settings.ip, settings.port);
 }else{
   var app = express();
+  app.use(express.json());
+  app.use(express.urlencoded());
   var server = app.listen(settings.port);
 }
 
@@ -43,6 +45,8 @@ var clientSettings = {
 
 // Config Express to server static files from /
 app.configure(function(){
+  app.use('/download',express.directory(__dirname + '/data'));
+  app.use('/download',express.static(__dirname + '/data'));
   app.use(express.static(__dirname + '/'));
 });
 
@@ -84,6 +88,17 @@ app.get('/tests/frontend/specs_list.js', function(req, res){
 // Used for front-end tests
 app.get('/tests/frontend', function (req, res) {
   res.redirect('/tests/frontend/');
+});
+
+app.post('/saveImg', function(req, res) {
+  var img = req.body.imageData;
+  var currrentTimestamp = Math.floor(new Date() / 1000);
+  fs.writeFile("data/castrol_" + currrentTimestamp + ".png", img.replace(/^data:image\/png;base64,/, ""), 'base64', function(err) {
+    if (!err) {
+      res.end("success");
+      console.log("saved");
+    }
+  });
 });
 
 // Static files IE Javascript and CSS

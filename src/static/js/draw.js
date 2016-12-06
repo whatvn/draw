@@ -573,7 +573,8 @@ $('#embedlink').on('click', function() {
   $('#embed').fadeToggle();
 });
 $('#importExport').on('click', function() {
-  $('#importexport').fadeToggle();
+  // $('#importexport').fadeToggle();
+  exportPNG();
 });
 $('#usericon').on('click', function() {
   $('#mycolorpicker').fadeToggle();
@@ -729,7 +730,7 @@ function saveImageBase64(base64String) {
               "z-index": "100"
               });
             $('#PNGSaved').show(); 
-            $('#importexport').hide();
+            // $('#importexport').hide();
             setTimeout(hideShowExportDom, 2000);
         }
     });

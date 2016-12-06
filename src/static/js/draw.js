@@ -688,17 +688,17 @@ function encodeAsImgAndLink(svg) {
 // for a POST.
 function exportPNG() {
   var canvas = document.getElementById('myCanvas');
-  var html = "<img src='" + canvas.toDataURL('image/png') + "' />"
-  if ($.browser.msie) {
-    window.winpng = window.open('/static/html/export.html');
-    window.winpng.document.write(html);
-    window.winpng.document.body.style.margin = 0;
-  } else {
-    window.winpng = window.open();
-    window.winpng.document.write(html);
-    window.winpng.document.body.style.margin = 0;
-  }
+  // var html = "<img src='" + canvas.toDataURL('image/png') + "' />"
+  // if ($.browser.msie) {
+    // window.winpng = window.open('/static/html/export.html');
+    // window.winpng.document.write(html);
+    // window.winpng.document.body.style.margin = 0;
 
+  // } else {
+    // window.winpng = window.open();
+    // window.winpng.document.write(html);
+    // window.winpng.document.body.style.margin = 0;
+    saveImageBase64(canvas.toDataURL('image/png'));
 }
 
 // User selects an image from the file browser to upload
@@ -711,6 +711,33 @@ $('#imageInput').bind('change', function(e) {
   }
 });
 
+function saveImageBase64(base64String) {
+  $.ajax({
+        type: "POST",
+        url: "/saveImg",
+        data: {imageData: base64String},
+        success: function () {
+            console.log("success");
+            $('#PNGSaved').css({
+              "padding-bottom": "100px",
+              "font-size": "2.5em",
+              "color": "#aaa",
+              "text-align": "center",
+              "position": "absolute",
+              "width": "100%",
+              "height": "30px",
+              "z-index": "100"
+              });
+            $('#PNGSaved').show(); 
+            $('#importexport').hide();
+            setTimeout(hideShowExportDom, 2000);
+        }
+    });
+};
+
+function hideShowExportDom() {
+  $('#PNGSaved').hide(); 
+}
 function uploadImage(file) {
   var reader = new FileReader();
 

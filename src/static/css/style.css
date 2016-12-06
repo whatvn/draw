@@ -127,6 +127,11 @@ body {
   height: 30px;
   z-index: 100;
 }
+
+#PNGSaved {
+  display: none;
+}
+
 #mycolorpicker {
 
   position: absolute;

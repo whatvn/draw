@@ -599,7 +599,9 @@ $('#pencilTool').on('click', function() {
   }); // set the selecttool css to show it as active
   activeTool = "pencil";
   $('#myCanvas').css('cursor', 'pointer');
-  paper.project.activeLayer.selected = false;
+  if (paper.project.activeLayer) {
+    paper.project.activeLayer.selected = false;
+  }
 });
 $('#drawTool').on('click', function() {
   $('#editbar > ul > li > a').css({
